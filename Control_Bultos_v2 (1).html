@@ -1,0 +1,3169 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Control de Pedidos - 239 - Logistics Package List</title>
+<style id="otif-styles">
+  /* ── Control de secciones ── */
+  div#sectionOtif,
+  div#sectionBultos,
+  div#sectionEstatus { display: none; }
+
+  div#sectionOtif.sec-visible,
+  div#sectionBultos.sec-visible,
+  div#sectionEstatus.sec-visible { display: block !important; }
+  .nav-item-active { background: #1a3a5c !important; color: #fff !important; }
+  .nav-item-active .material-symbols-outlined { color: #fff !important; }
+
+  /* Badge OTIF */
+  .badge-cumplido    { background:#dcfce7;color:#15803d;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;text-transform:uppercase }
+  .badge-incumplido  { background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;text-transform:uppercase }
+  .badge-parcial     { background:#fef9c3;color:#a16207;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:0.06em;text-transform:uppercase }
+
+  /* Tabla OTIF header */
+  #otifTableHeader { background: linear-gradient(135deg,#1a3a5c 0%,#0f2540 100%); }
+
+  /* ── Tabla Estatus (pivot) ── */
+  #estatusTableHeader th { font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#fff !important;padding:8px 10px;white-space:nowrap }
+  #estatusTableHeader th.hdr-navy{background:#1a3a5c}
+  #estatusTableHeader th.hdr-black{background:#0d1520}
+  #estatusTableHeader th.hdr-green{background:#166534}
+  #estatusTableHeader th.hdr-amber{background:#92400e}
+  .estatus-row td{padding:6px 10px;font-size:12px;border-bottom:1px solid #edf0f6;white-space:nowrap}
+  .estatus-total-row td{padding:7px 10px;font-size:12px;font-weight:700;background:#dbeafe;border-top:1px solid #93c5fd;border-bottom:1px solid #93c5fd;white-space:nowrap}
+  .estatus-fecha-toggle{cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px}
+  .estatus-fecha-toggle .material-symbols-outlined{font-size:14px;transition:transform 0.15s}
+  .estatus-group-collapsed .material-symbols-outlined{transform:rotate(-90deg)}
+  .pct-100{background:#dcfce7;color:#15803d;font-weight:700;border-color:#a9e8c1}
+  .pct-partial{background:#fef3c7;color:#92400e;font-weight:700;border-color:#fbd88a}
+  .pct-zero{background:#fee2e2;color:#b91c1c;font-weight:700;border-color:#f3aeae}
+  .pct-cell{padding:3px 10px;border-radius:999px;border:1px solid transparent;display:inline-block;min-width:60px;text-align:center;font-size:11px;letter-spacing:0.02em}
+  #otifTableHeader th { font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#fff !important;padding:10px 12px;white-space:nowrap }
+  #otifTableBody tr { border-bottom:1px solid #edf0f6; }
+  #otifTableBody tr:last-child { border-bottom:none; }
+  #otifTableBody tr:nth-child(even) { background-color:rgba(26,58,92,0.028); }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode:"class",
+  theme:{extend:{
+    colors:{
+      "primary":"#1a3a5c","on-background":"#0f1923","error":"#c0392b","outline":"#8a9ab0",
+      "secondary-fixed":"#dde8f5","on-secondary":"#ffffff","surface-container-high":"#e4e9f0",
+      "surface":"#f4f6f9","inverse-surface":"#1e2a38","on-secondary-container":"#3a5a7c",
+      "on-error":"#ffffff","surface-dim":"#d0d8e4","on-secondary-fixed-variant":"#2c4a68",
+      "tertiary-container":"#1a3a5c","on-primary":"#ffffff","on-surface":"#0f1923",
+      "secondary-fixed-dim":"#b8c8dc","surface-container":"#e8edf4","on-surface-variant":"#3a4d62",
+      "background":"#f4f6f9","surface-container-low":"#edf0f6","outline-variant":"#c4cdd9",
+      "on-error-container":"#7f1d1d","error-container":"#fde8e8","inverse-primary":"#a8c4e0",
+      "on-tertiary":"#ffffff","primary-fixed":"#dde8f5","tertiary":"#1a3a5c",
+      "secondary-container":"#dde8f5","secondary":"#2c4a68","primary-container":"#2a5a8c",
+      "inverse-on-surface":"#edf0f6","surface-variant":"#dde4ee","surface-container-lowest":"#ffffff",
+      "on-secondary-fixed":"#0d1e30",
+      "accent":"#c8a84b","accent-light":"#f5f0e0"
+    },
+    borderRadius:{DEFAULT:"0.25rem",lg:"0.375rem",xl:"0.625rem",full:"0.75rem"},
+    fontFamily:{"body-lg":["Inter","sans-serif"],"label-sm":["JetBrains Mono","monospace"],"headline-lg":["Inter","sans-serif"],"headline-md":["Inter","sans-serif"],"data-display":["JetBrains Mono","monospace"],"body-md":["Inter","sans-serif"]},
+    fontSize:{
+      "body-lg":["15px",{"lineHeight":"24px","fontWeight":"400"}],
+      "label-sm":["11px",{"lineHeight":"16px","letterSpacing":"0.07em","fontWeight":"600"}],
+      "headline-lg":["26px",{"lineHeight":"34px","fontWeight":"700"}],
+      "headline-md":["20px",{"lineHeight":"28px","fontWeight":"700"}],
+      "data-display":["17px",{"lineHeight":"24px","fontWeight":"600"}],
+      "body-md":["13px",{"lineHeight":"20px","fontWeight":"400"}]
+    }
+  }}
+}
+</script>
+<style>
+  *{font-family:'Inter',sans-serif}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24;vertical-align:middle}
+  .zebra-row:nth-child(even){background-color:rgba(26,58,92,0.028)}
+  .sticky-header{position:sticky;top:0;z-index:10}
+  .editable-cell{cursor:pointer}
+  .editable-cell:hover{background-color:rgba(26,58,92,0.05)}
+  .editable-cell input{width:100%;background:transparent;border:none;outline:2px solid #1a3a5c;border-radius:3px;padding:2px 4px;font-family:'JetBrains Mono',monospace;font-size:12px}
+  .col-header-cell{cursor:pointer;user-select:none}
+  .col-header-cell:hover{background-color:rgba(255,255,255,0.12)}
+  .col-header-cell input{background:transparent;border:none;border-bottom:1.5px solid rgba(255,255,255,0.6);color:#fff;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.07em;font-weight:600;text-transform:uppercase;width:100%;outline:none}
+  .toast{position:fixed;bottom:80px;right:24px;z-index:9999;padding:12px 20px;border-radius:6px;font-weight:600;font-size:12px;box-shadow:0 6px 24px rgba(0,0,0,0.18);transform:translateY(20px);opacity:0;transition:all 0.3s ease;letter-spacing:0.02em}
+  .toast.show{transform:translateY(0);opacity:1}
+  .row-selected{background-color:rgba(26,58,92,0.07)!important;outline:1px solid rgba(26,58,92,0.25)}
+  .row-bultos-mismatch{background-color:rgba(220,38,38,0.14)!important}
+  .row-bultos-mismatch:hover{background-color:rgba(220,38,38,0.22)!important}
+  .cb-row{width:14px;height:14px;accent-color:#1a3a5c;cursor:pointer}
+  #exportSelBtn{display:none}
+  #exportSelBtn.visible{display:flex}
+  .loading-overlay{position:fixed;inset:0;background:rgba(244,246,249,0.92);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  .spinner{width:36px;height:36px;border:3px solid #c4cdd9;border-top-color:#1a3a5c;border-radius:50%;animation:spin 0.7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* Sidebar refinado */
+  aside{border-right:1px solid #dde4ee}
+  /* Header refinado */
+  header{border-bottom:1px solid #dde4ee;background:#ffffff}
+  /* Tabla header oscuro ejecutivo */
+  #tableHeader{background:linear-gradient(135deg,#1a3a5c 0%,#0f2540 100%)}
+  #tableHeader th, #tableHeader th span.hl{color:#ffffff !important}
+  #tableHeader .col-header-cell{color:#ffffff !important}
+  #tableHeader th{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#fff !important;padding:10px 16px;white-space:nowrap}
+  #tableHeader .material-symbols-outlined{color:#ffffff !important}
+  /* KPI cards con borde izquierdo acento */
+  .kpi-card{border-left:3px solid #1a3a5c}
+  .kpi-card-green{border-left:3px solid #16a34a}
+  .kpi-card-amber{border-left:3px solid #d97706}
+  .kpi-card-red{border-left:3px solid #c0392b}
+  .kpi-card-navy{border-left:3px solid #2a5a8c}
+  /* Divider sutil entre filas */
+  #tableBody tr{border-bottom:1px solid #edf0f6}
+  #tableBody tr:last-child{border-bottom:none}
+  /* Badge status — aspecto ejecutivo (pill + punto de estado) */
+  .badge-conforme,.badge-pendiente{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 10px 3px 8px;border-radius:999px;letter-spacing:0.06em;text-transform:uppercase;border:1px solid transparent}
+  .badge-conforme{background:#dcfce7;color:#15803d;border-color:#a9e8c1}
+  .badge-pendiente{background:#fef9c3;color:#a16207;border-color:#f4e38a}
+  .badge-conforme::before,.badge-pendiente::before{content:'';width:6px;height:6px;border-radius:50%;flex:none}
+  .badge-conforme::before{background:#22c55e}
+  .badge-pendiente::before{background:#eab308}
+  /* Select ESTATUS DESPACHO — pill ejecutivo, sin flecha nativa del navegador */
+  .status-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;padding:4px 26px 4px 10px!important;border-radius:999px!important;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233a4d62' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 8px center;background-size:12px}
+  /* Input de búsqueda */
+  #globalSearch{font-size:13px;background:#f4f6f9;border:1px solid #c4cdd9;transition:border-color 0.2s,box-shadow 0.2s}
+  #globalSearch:focus{border-color:#1a3a5c;box-shadow:0 0 0 3px rgba(26,58,92,0.1);background:#fff}
+  /* Botones del header */
+  .btn-outline-exec{border:1px solid #c4cdd9;color:#3a4d62;font-size:11px;font-weight:600;letter-spacing:0.04em;border-radius:5px;transition:all 0.2s;background:#fff}
+  .btn-outline-exec:hover{border-color:#1a3a5c;color:#1a3a5c;background:#f0f5fb}
+  .btn-primary-exec{background:#1a3a5c;color:#fff;font-size:11px;font-weight:600;letter-spacing:0.04em;border-radius:5px;border:none;transition:all 0.2s}
+  .btn-primary-exec:hover{background:#142e4a}
+  /* ── Modal PIN ── */
+  .pin-overlay{position:fixed;inset:0;background:rgba(10,20,35,0.55);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+  .pin-box{background:#fff;border-radius:12px;padding:32px 36px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.25);border-top:4px solid #1a3a5c;text-align:center}
+  .pin-box h2{font-size:16px;font-weight:700;color:#1a3a5c;margin-bottom:4px}
+  .pin-box p{font-size:12px;color:#8a9ab0;margin-bottom:20px}
+  .pin-input{width:100%;border:2px solid #c4cdd9;border-radius:8px;padding:10px 14px;font-size:15px;font-family:'JetBrains Mono',monospace;letter-spacing:0.15em;text-align:center;outline:none;transition:border-color 0.2s;color:#1a3a5c;font-weight:600}
+  .pin-input:focus{border-color:#1a3a5c;box-shadow:0 0 0 3px rgba(26,58,92,0.12)}
+  .pin-input.error{border-color:#c0392b;animation:shake 0.35s ease}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .pin-error{color:#c0392b;font-size:11px;font-weight:600;margin-top:8px;min-height:16px}
+  .pin-btns{display:flex;gap:10px;margin-top:20px}
+  .pin-btns button{flex:1;padding:9px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s}
+  .pin-cancel{background:#f4f6f9;color:#3a4d62;border:1px solid #c4cdd9}
+  .pin-cancel:hover{background:#e4e9f0}
+  .pin-confirm{background:#1a3a5c;color:#fff;border:none}
+  .pin-confirm:hover{background:#142e4a}
+
+  /* ── Modal Subir XLS ── */
+  .upload-overlay{position:fixed;inset:0;background:rgba(10,20,35,0.55);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+  .upload-box{background:#fff;border-radius:12px;width:420px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.28);overflow:hidden}
+  .upload-header{background:#0f2745;color:#fff;padding:18px 20px;display:flex;align-items:flex-start;gap:12px}
+  .upload-header .material-symbols-outlined{font-size:22px;margin-top:2px}
+  .upload-header h2{font-size:15px;font-weight:700;margin:0}
+  .upload-header p{font-size:11.5px;color:#b9c6d8;margin:2px 0 0}
+  .upload-close{background:none;border:none;color:#cfd9e6;cursor:pointer;margin-left:auto;font-size:18px;line-height:1;padding:2px}
+  .upload-close:hover{color:#fff}
+  .upload-body{padding:22px 20px}
+  .upload-dropzone{border:2px dashed #c4cdd9;border-radius:10px;padding:34px 16px;text-align:center;cursor:pointer;transition:all 0.2s;color:#5a6b80}
+  .upload-dropzone:hover, .upload-dropzone.dragover{border-color:#1a3a5c;background:#f0f5fb}
+  .upload-dropzone .material-symbols-outlined{font-size:40px;color:#8a9ab0;display:block;margin:0 auto 8px}
+  .upload-dropzone p{margin:2px 0;font-size:13px;font-weight:600;color:#3a4d62}
+  .upload-dropzone .upload-hint{font-size:11px;font-weight:400;color:#8a9ab0}
+  .upload-filename{margin-top:12px;font-size:12px;font-weight:600;color:#1a3a5c;background:#f0f5fb;border-radius:6px;padding:8px 10px}
+  .upload-error{margin-top:12px;font-size:12px;font-weight:600;color:#c0392b;background:#fdecea;border-radius:6px;padding:8px 10px;line-height:1.4}
+  .upload-footer{display:flex;gap:10px;padding:16px 20px;border-top:1px solid #e8ecf1}
+  .upload-footer button{flex:1;padding:9px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s}
+  .upload-footer .pin-confirm:disabled{background:#a8b6c6;cursor:not-allowed}
+  /* ── Modo edición BULTOS activo ── */
+  .bultos-edit-mode{background:#fffbeb !important;outline:2px solid #d97706 !important;border-radius:3px;cursor:text !important}
+  .bultos-edit-mode:hover{background:#fef3c7 !important}
+  #btnEditBultos.active{background:#d97706;color:#fff}
+  #btnEditBultos.active:hover{background:#b45309}
+  #btnSaveBultos{display:none}
+  #btnSaveBultos.visible{display:flex}
+  ::-webkit-scrollbar{width:5px;height:5px}
+  ::-webkit-scrollbar-track{background:#f4f6f9}
+  ::-webkit-scrollbar-thumb{background:#c4cdd9;border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:#8a9ab0}
+  /* Logo sidebar */
+  .sidebar-logo{background:linear-gradient(135deg,#1a3a5c 0%,#2a5a8c 100%);color:#fff;border-radius:8px;padding:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+  /* User avatar */
+  .user-avatar{background:linear-gradient(135deg,#1a3a5c,#2a5a8c)}
+  /* Filtros section */
+  .filtros-section{background:#fff;border:1px solid #dde4ee;border-radius:8px}
+  /* Tabla container */
+  .tabla-container{border:1px solid #dde4ee;border-radius:8px;background:#fff}
+</style>
+<style id="tabla-ancha">
+  /* Tabla de Bultos: columnas más compactas para que quepan más cabeceras */
+  #mainTable th, #mainTable td{padding-left:10px !important;padding-right:10px !important}
+  #mainTable th{font-size:10px}
+  /* Barra de desplazamiento horizontal/vertical bien visible */
+  .tabla-scroll{scrollbar-width:auto;scrollbar-color:#8a9ab0 #e8edf4}
+  .tabla-scroll::-webkit-scrollbar{height:14px;width:12px}
+  .tabla-scroll::-webkit-scrollbar-track{background:#e8edf4;border-radius:6px}
+  .tabla-scroll::-webkit-scrollbar-thumb{background:#8a9ab0;border-radius:6px;border:2px solid #e8edf4}
+  .tabla-scroll::-webkit-scrollbar-thumb:hover{background:#1a3a5c}
+</style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col md:flex-row">
+
+<!-- Loading overlay -->
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="spinner"></div>
+  <p class="text-label-sm text-on-surface-variant font-bold tracking-wider uppercase">Cargando datos...</p>
+</div>
+
+<!-- Sidebar -->
+<aside class="hidden md:flex flex-col h-screen w-64 left-0 sticky bg-white border-r border-outline-variant p-4">
+  <div class="px-4 py-5 mb-4 border-b border-outline-variant">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="sidebar-logo"><span class="material-symbols-outlined text-[18px]">local_shipping</span></div>
+      <div>
+        <h1 class="text-[15px] font-bold text-primary leading-tight">Control de Pedidos</h1>
+        <p class="text-[10px] text-on-surface-variant tracking-wider uppercase mt-0.5">Logistics Package List</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5 bg-surface-container-low rounded px-2 py-1">
+      <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+      <span class="text-[10px] text-on-surface-variant font-mono font-semibold tracking-wider">OPERACIÓN 239</span>
+    </div>
+  </div>
+  <nav class="flex-grow space-y-0.5 px-1">
+    <a id="navBultos" onclick="switchSection('bultos')" class="flex items-center gap-3 px-3 py-2.5 bg-primary text-on-primary rounded-md font-semibold transition-all cursor-pointer text-[13px]">
+      <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+      <span>Bultos</span>
+    </a>
+    <a id="navOtif" style="display:none" onclick="switchSection('otif')" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-low rounded-md transition-all cursor-pointer text-[13px]">
+      <span class="material-symbols-outlined text-[18px]">assignment_turned_in</span>
+      <span>KPI Pedidos</span>
+    </a>
+    <a id="navEstatus" onclick="switchSection('estatus')" class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-low rounded-md transition-all cursor-pointer text-[13px]">
+      <span class="material-symbols-outlined text-[18px]">fact_check</span>
+      <span>Estatus</span>
+    </a>
+  </nav>
+  <div class="px-1 pb-2 mt-4 border-t border-outline-variant pt-4">
+    <p class="text-[10px] text-on-surface-variant opacity-50 text-center mt-3 tracking-wider uppercase">v4.1 · Control Bultos</p>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="flex-grow flex flex-col">
+  <div id="sectionsWrapper" style="flex:1;min-width:0;">
+
+  <!-- ══ SECCIÓN BULTOS ══ -->
+  <div id="sectionBultos">
+
+  <!-- Header Bultos -->
+  <header class="flex justify-between items-center w-full px-6 h-14 z-40 bg-white border-b border-outline-variant top-0 sticky">
+    <div class="flex items-center gap-4">
+      <button class="md:hidden p-1"><span class="material-symbols-outlined">menu</span></button>
+      <div class="relative">
+        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
+          <span class="material-symbols-outlined text-[18px]">search</span>
+        </span>
+        <input id="globalSearch" oninput="applyFiltersDebounced()" type="text" placeholder="Buscar BPCS, Documento, Destinatario..."
+          class="border border-outline-variant rounded-md pl-9 pr-4 py-1.5 text-[13px] w-64 md:w-80">
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="exportSelBtn" onclick="exportSelected()"
+        class="btn-primary-exec items-center gap-1 px-3 py-1.5">
+        <span class="material-symbols-outlined text-[15px]">download</span>
+        Exportar selec. (<span id="selCount">0</span>)
+      </button>
+
+      <div class="h-5 w-px bg-outline-variant mx-1"></div>
+
+      <button id="btnEditBultos" onclick="openPinModal()"
+        class="btn-outline-exec flex items-center gap-1.5 px-3 py-1.5" style="color:#d97706;border-color:#d97706">
+        <span class="material-symbols-outlined text-[15px]">lock</span>Editar Bultos
+      </button>
+      <button id="btnSaveBultos" onclick="saveBultosEdits()"
+        class="btn-primary-exec flex items-center gap-1.5 px-3 py-1.5" style="background:#16a34a">
+        <span class="material-symbols-outlined text-[15px]">save</span>Guardar Cambios
+      </button>
+
+      <div class="h-5 w-px bg-outline-variant mx-1"></div>
+      <div class="flex items-center gap-1 text-[11px] text-on-surface-variant">
+        <span class="material-symbols-outlined text-[13px]">schedule</span>
+        <span id="syncTime">Sin actualizar</span>
+      </div>
+      <button onclick="reloadSheet()" title="Actualizar datos del Sheet"
+        class="btn-primary-exec flex items-center gap-1 px-3 py-1.5">
+        <span class="material-symbols-outlined text-[15px]">refresh</span>Actualizar
+      </button>
+
+      <div class="h-5 w-px bg-outline-variant mx-1"></div>
+
+      <button onclick="openMigrateModal()" title="Marcar pedidos antiguos como Revisado"
+        class="btn-outline-exec flex items-center gap-1 px-3 py-1.5" style="color:#166534;border-color:#166534">
+        <span class="material-symbols-outlined text-[16px]">fact_check</span>Migrar Histórico
+      </button>
+
+      <div class="h-5 w-px bg-outline-variant mx-1"></div>
+
+      <button onclick="openUploadModal()"
+        class="btn-outline-exec flex items-center gap-1 px-3 py-1.5">
+        <span class="material-symbols-outlined text-[16px]">upload</span>Subir XLS
+      </button>
+      <input id="importXlsInput" type="file" accept=".xls,.xlsx,.xlsb,.xlsm" class="hidden" onchange="handleFileSelected(event.target.files[0])">
+      <button onclick="downloadTemplate()" title="Descargar plantilla vacía para subir datos"
+        class="btn-outline-exec flex items-center gap-1 px-3 py-1.5" style="color:#1a3a5c;border-color:#a8c4e0">
+        <span class="material-symbols-outlined text-[16px]">table_view</span>Plantilla
+      </button>
+      <button onclick="exportToXLS()"
+        class="btn-outline-exec flex items-center gap-1 px-3 py-1.5">
+        <span class="material-symbols-outlined text-[16px]">download</span>Descargar XLS
+      </button>
+      <button onclick="openReporteModal()" title="Reporte por Fecha de Cita con formato de planilla"
+        class="btn-primary-exec flex items-center gap-1 px-3 py-1.5" style="background:#1a3a5c">
+        <span class="material-symbols-outlined text-[16px]">description</span>Descargar Reporte
+      </button>
+    </div>
+  </header>
+
+  <div class="p-6 flex flex-col gap-6 max-w-none mx-auto w-full">
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+
+      <!-- 1. Total Pedidos → % conformes/total -->
+      <div class="kpi-card bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Total Pedidos</span>
+        <span id="kpi-total" class="text-[28px] font-bold text-primary leading-none mt-1">0</span>
+        <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+          <span class="material-symbols-outlined text-[12px] text-green-600">check_circle</span>
+          <span id="kpi-total-sub" class="text-[11px] font-bold text-green-600">0 conf.</span>
+          <span class="text-[11px] text-on-surface-variant">/ <span id="kpi-total-gen">0</span> total</span>
+        </div>
+      </div>
+
+      <!-- 2. Total Unidades -->
+      <div class="kpi-card-navy bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Total Unidades</span>
+        <span id="kpi-unidades" class="text-[28px] font-bold text-secondary leading-none mt-1">0</span>
+        <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+          <span class="material-symbols-outlined text-[12px] text-error">remove_circle</span>
+          <span id="kpi-unidades-pend" class="text-[11px] font-bold text-error">0</span>
+          <span class="text-[11px] text-on-surface-variant">und. pendientes</span>
+        </div>
+      </div>
+
+      <!-- 3. Total Bultos -->
+      <div class="kpi-card-amber bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Total Bultos</span>
+        <span id="kpi-bultos" class="text-[28px] font-bold text-primary leading-none mt-1">0</span>
+        <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+          <span class="material-symbols-outlined text-[12px] text-on-surface-variant">inventory_2</span>
+          <span class="text-[11px] text-on-surface-variant">sumatoria total de bultos</span>
+        </div>
+      </div>
+
+      <!-- 4. Conformes -->
+      <div class="kpi-card-green bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Conformes</span>
+        <span id="kpi-conformes" class="text-[28px] font-bold text-green-600 leading-none mt-1">0</span>
+        <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+          <span class="material-symbols-outlined text-[12px] text-green-600">check_circle</span>
+          <span class="text-[11px] text-on-surface-variant">pedidos con bultos</span>
+        </div>
+      </div>
+
+      <!-- 5. Pendientes -->
+      <div class="kpi-card-red bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Pendientes</span>
+        <span id="kpi-pendientes" class="text-[28px] font-bold text-error leading-none mt-1">0</span>
+        <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+          <span class="material-symbols-outlined text-[12px] text-error">warning</span>
+          <span class="text-[11px] text-on-surface-variant">pedidos sin bultos</span>
+        </div>
+      </div>
+
+      <!-- 6. Pendientes de Revisión (ESTATUS DESPACHO) -->
+      <div class="kpi-card bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1" style="border-left-color:#d97706">
+        <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Pend. de Revisión</span>
+        <span id="kpi-pend-revision" class="text-[28px] font-bold leading-none mt-1" style="color:#b45309">0</span>
+        <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+          <span class="material-symbols-outlined text-[12px]" style="color:#b45309">fact_check</span>
+          <span id="kpi-revisados-sub" class="text-[11px] font-bold" style="color:#15803d">0 revisados</span>
+          <span class="text-[11px] text-on-surface-variant">/ <span id="kpi-revision-gen">0</span> total</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Filtros -->
+    <div class="filtros-section p-4 flex flex-wrap items-end gap-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Rango de Fechas</label>
+        <div class="flex items-center gap-2">
+          <input id="filterFechaDesde" type="date" onchange="applyFilters()" class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+          <span class="text-outline text-sm">–</span>
+          <input id="filterFechaHasta" type="date" onchange="applyFilters()" class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+        </div>
+      </div>
+      <div class="flex flex-col gap-1 min-w-[120px]">
+        <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">BPCS</label>
+        <input id="filterBpcs" oninput="applyFiltersDebounced()" type="text" placeholder="Ej: 967310..." class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+      </div>
+      <div class="flex flex-col gap-1 min-w-[130px]">
+        <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Documento</label>
+        <input id="filterDoc" oninput="applyFiltersDebounced()" type="text" placeholder="Ej: 4709456..." class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+      </div>
+      <div class="flex flex-col gap-1 min-w-[160px]">
+        <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Destinatario</label>
+        <input id="filterDest" oninput="applyFiltersDebounced()" type="text" placeholder="Nombre destinatario..." class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Mes</label>
+        <select id="filterMes" onchange="applyFilters()" class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+          <option value="">Todos</option>
+          <option value="1">Enero</option>
+          <option value="2">Febrero</option>
+          <option value="3">Marzo</option>
+          <option value="4">Abril</option>
+          <option value="5">Mayo</option>
+          <option value="6">Junio</option>
+          <option value="7">Julio</option>
+          <option value="8">Agosto</option>
+          <option value="9">Septiembre</option>
+          <option value="10">Octubre</option>
+          <option value="11">Noviembre</option>
+          <option value="12">Diciembre</option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Status</label>
+        <select id="filterStatus" onchange="applyFilters()" class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+          <option value="">Todos</option>
+          <option>Conforme</option>
+          <option>Pendiente</option>
+        </select>
+      </div>
+      <button onclick="clearFilters()" class="btn-primary-exec px-4 py-1.5 h-[34px]">
+        Limpiar
+      </button>
+    </div>
+
+    <!-- Tabla -->
+    <div class="tabla-container overflow-hidden">
+      <div class="tabla-scroll overflow-x-auto overflow-y-auto" style="max-height:720px;min-height:120px;">
+        <table class="w-full text-left border-collapse" id="mainTable">
+          <thead>
+            <tr id="tableHeader" class="sticky-header"></tr>
+          </thead>
+          <tbody id="tableBody" class="">
+            <tr><td colspan="12" class="text-center py-12 text-on-surface-variant">
+              <span class="material-symbols-outlined text-[48px] block mb-2 opacity-20">cloud_download</span>
+              Cargando datos del Sheet...
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="px-5 py-3 bg-surface-container-low border-t border-outline-variant flex items-center gap-3">
+        <span class="text-[12px] text-on-surface-variant">
+          <span id="totalEntries" class="font-bold text-primary">0</span> registros
+        </span>
+        <span id="selSummary" class="text-primary font-bold text-[12px]"></span>
+      </div>
+    </div>
+
+  </div><!-- /p6 content bultos -->
+  </div><!-- /sectionBultos -->
+
+  <!-- ══ SECCIÓN KPI PEDIDOS ══ -->
+  <div id="sectionOtif">
+
+    <!-- Header OTIF -->
+    <header class="flex justify-between items-center w-full px-6 h-14 z-40 bg-white border-b border-outline-variant top-0 sticky">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-primary text-[20px]">assignment_turned_in</span>
+        <span class="text-[15px] font-bold text-primary">KPI Pedidos — Cumplimiento</span>
+        <span id="otifSyncTime" class="text-[11px] text-on-surface-variant flex items-center gap-1">
+          <span class="material-symbols-outlined text-[13px]">schedule</span>Sin actualizar
+        </span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="exportOtifFiltered()"
+          class="btn-outline-exec flex items-center gap-1 px-3 py-1.5">
+          <span class="material-symbols-outlined text-[16px]">download</span>Descargar XLS
+        </button>
+        <button onclick="reloadOtif()"
+          class="btn-primary-exec flex items-center gap-1 px-3 py-1.5">
+          <span class="material-symbols-outlined text-[15px]">refresh</span>Actualizar
+        </button>
+      </div>
+    </header>
+
+    <div class="p-6 flex flex-col gap-6 max-w-[1800px] mx-auto w-full">
+
+      <!-- KPIs OTIF -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="kpi-card bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+          <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Total Pedidos</span>
+          <span id="otif-kpi-total" class="text-[28px] font-bold text-primary leading-none mt-1">0</span>
+          <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+            <span class="material-symbols-outlined text-[12px] text-on-surface-variant">receipt_long</span>
+            <span class="text-[11px] text-on-surface-variant">registros cargados</span>
+          </div>
+        </div>
+        <div class="kpi-card-green bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+          <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Cumplidos</span>
+          <span id="otif-kpi-cumplidos" class="text-[28px] font-bold text-green-600 leading-none mt-1">0</span>
+          <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+            <span class="material-symbols-outlined text-[12px] text-green-600">check_circle</span>
+            <span id="otif-kpi-pct-cumplidos" class="text-[11px] font-bold text-green-600">0%</span>
+            <span class="text-[11px] text-on-surface-variant">del total</span>
+          </div>
+        </div>
+        <div class="kpi-card-red bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+          <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Incumplidos</span>
+          <span id="otif-kpi-incumplidos" class="text-[28px] font-bold text-error leading-none mt-1">0</span>
+          <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+            <span class="material-symbols-outlined text-[12px] text-error">cancel</span>
+            <span id="otif-kpi-pct-incumplidos" class="text-[11px] font-bold text-error">0%</span>
+            <span class="text-[11px] text-on-surface-variant">del total</span>
+          </div>
+        </div>
+        <div class="kpi-card-amber bg-white p-4 rounded-lg border border-outline-variant flex flex-col gap-1">
+          <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">% OTIF</span>
+          <span id="otif-kpi-otif-pct" class="text-[28px] font-bold text-amber-600 leading-none mt-1">0%</span>
+          <div class="flex items-center gap-1 mt-2 pt-2 border-t border-outline-variant/50">
+            <span class="material-symbols-outlined text-[12px] text-amber-600">insights</span>
+            <span class="text-[11px] text-on-surface-variant">indicador global</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros OTIF -->
+      <div class="filtros-section p-4 flex flex-wrap items-end gap-4">
+        <!-- Mes - Año -->
+        <div class="flex flex-col gap-1 min-w-[130px]">
+          <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Mes - Año</label>
+          <select id="otifFilterMesAnio" onchange="applyOtifFilters()"
+            class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <!-- Nro de Pedido -->
+        <div class="flex flex-col gap-1 min-w-[140px]">
+          <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Nro de Pedido</label>
+          <input id="otifFilterPedido" oninput="applyOtifFilters()" type="text" placeholder="Ej: 967310..."
+            class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+        </div>
+        <!-- Nro de la Guía -->
+        <div class="flex flex-col gap-1 min-w-[140px]">
+          <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Nro de la Guía</label>
+          <input id="otifFilterGuia" oninput="applyOtifFilters()" type="text" placeholder="Ej: 4709456..."
+            class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+        </div>
+        <!-- Destinatario -->
+        <div class="flex flex-col gap-1 min-w-[180px]">
+          <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Destinatario</label>
+          <input id="otifFilterDest" oninput="applyOtifFilters()" type="text" placeholder="Nombre destinatario..."
+            class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+        </div>
+        <button onclick="clearOtifFilters()" class="btn-primary-exec px-4 py-1.5 h-[34px]">Limpiar</button>
+      </div>
+
+      <!-- Tabla OTIF -->
+      <div class="tabla-container overflow-hidden">
+        <div class="overflow-x-auto overflow-y-auto" style="max-height:500px;min-height:120px;">
+          <table class="w-full text-left border-collapse" id="otifTable">
+            <thead>
+              <tr id="otifTableHeader" class="sticky-header"></tr>
+            </thead>
+            <tbody id="otifTableBody">
+              <tr><td colspan="10" class="text-center py-12 text-on-surface-variant">
+                <span class="material-symbols-outlined text-[48px] block mb-2 opacity-20">cloud_download</span>
+                Cargando datos OTIF...
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="px-5 py-3 bg-surface-container-low border-t border-outline-variant flex items-center gap-3">
+          <span class="text-[12px] text-on-surface-variant">
+            <span id="otifTotalEntries" class="font-bold text-primary">0</span> registros
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /sectionOtif -->
+
+  <!-- ══ SECCIÓN ESTATUS (Pivot Fecha → Cliente) ══ -->
+  <div id="sectionEstatus">
+
+    <!-- Header Estatus -->
+    <header class="flex justify-between items-center w-full px-6 h-14 z-40 bg-white border-b border-outline-variant top-0 sticky">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-[18px] text-primary">fact_check</span>
+        <span class="text-[15px] font-bold text-primary">Estatus — Revisión de Despacho por Fecha</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="renderEstatusTable()" class="btn-primary-exec flex items-center gap-1 px-3 py-1.5">
+          <span class="material-symbols-outlined text-[15px]">refresh</span>Actualizar
+        </button>
+        <button id="estatusExportSelBtn" onclick="exportEstatus(true)" class="btn-primary-exec flex items-center gap-1 px-3 py-1.5" style="display:none;background:#166534">
+          <span class="material-symbols-outlined text-[15px]">checklist</span>Descargar selección (<span id="estatusSelCount">0</span>)
+        </button>
+        <button onclick="exportEstatus(false)" class="btn-outline-exec flex items-center gap-1 px-3 py-1.5">
+          <span class="material-symbols-outlined text-[16px]">download</span>Descargar XLS
+        </button>
+      </div>
+    </header>
+
+    <div class="p-6 flex flex-col gap-6 max-w-[1800px] mx-auto w-full">
+      <p class="text-[12px] text-on-surface-variant -mt-2">
+        Agrupado por <b>Fecha Cita</b> (Fecha Despacho) y <b>Destinatario</b>. La cantidad corresponde a la columna CANTIDAD del pedido.
+        Un pedido cuenta como <b>Revisado</b> cuando su ESTATUS DESPACHO está marcado como "Revisado".
+      </p>
+
+      <!-- Filtros Estatus -->
+      <div class="filtros-section p-4 flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Rango de Fecha Despacho</label>
+          <div class="flex items-center gap-2">
+            <input id="estatusFilterDesde" type="date" onchange="renderEstatusTable()" class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+            <span class="text-outline text-sm">–</span>
+            <input id="estatusFilterHasta" type="date" onchange="renderEstatusTable()" class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+          </div>
+        </div>
+        <div class="flex flex-col gap-1 min-w-[220px]">
+          <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Cliente</label>
+          <select id="estatusFilterCliente" onchange="renderEstatusTable()" class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] focus:ring-1 focus:ring-primary focus:outline-none">
+            <option value="">Todos los clientes</option>
+          </select>
+        </div>
+        <button onclick="clearEstatusFilters()" class="btn-primary-exec px-4 py-1.5 h-[34px]">
+          Limpiar
+        </button>
+        <span id="estatusSelSummary" class="text-[11px] text-on-surface-variant ml-auto"></span>
+      </div>
+
+      <div class="tabla-container overflow-hidden">
+        <div class="overflow-x-auto overflow-y-auto" style="max-height:600px;min-height:120px;">
+          <table class="w-full text-left border-collapse" id="estatusTable">
+            <thead>
+              <tr id="estatusTableHeader" class="sticky-header">
+                <th class="hdr-navy" style="width:34px"><input type="checkbox" class="cb-row" id="estatusCbAll" title="Seleccionar todo" onchange="toggleEstatusAll(this.checked)"></th>
+                <th class="hdr-navy">Fecha Despacho</th>
+                <th class="hdr-navy">Cliente</th>
+                <th class="hdr-black">N° Pedidos</th>
+                <th class="hdr-black">Cantidad</th>
+                <th class="hdr-green">Ped. Revisados</th>
+                <th class="hdr-green">Und. Revisadas</th>
+                <th class="hdr-amber">Ped. Pendientes</th>
+                <th class="hdr-amber">Cant. Pendiente</th>
+                <th class="hdr-black">%Revisión</th>
+              </tr>
+            </thead>
+            <tbody id="estatusTableBody">
+              <tr><td colspan="10" class="text-center py-12 text-on-surface-variant">
+                <span class="material-symbols-outlined text-[48px] block mb-2 opacity-20">fact_check</span>
+                Sin datos aún. Cargue la sección Bultos primero.
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sectionEstatus -->
+
+  </div><!-- /sectionsWrapper -->
+</main>
+
+<!-- Mobile Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface-container flex items-center justify-around z-50 border-t border-outline-variant/30 px-4">
+  <a class="flex flex-col items-center gap-1 text-primary font-bold" href="#">
+    <span class="material-symbols-outlined">inventory_2</span>
+    <span class="text-[10px]">Bultos</span>
+  </a>
+  <button onclick="openUploadModal()" class="flex flex-col items-center gap-1 text-on-surface-variant">
+    <span class="material-symbols-outlined">upload</span><span class="text-[10px]">Subir</span>
+  </button>
+  <button onclick="exportToXLS()" class="flex flex-col items-center gap-1 text-on-surface-variant">
+    <span class="material-symbols-outlined">download</span><span class="text-[10px]">Descargar</span>
+  </button>
+  <button onclick="reloadSheet()" class="flex flex-col items-center gap-1 text-on-surface-variant">
+    <span class="material-symbols-outlined">refresh</span><span class="text-[10px]">Actualizado</span>
+  </button>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQbwAInbiFJnCxdliYTfkXYjL_M0Tt5LAl1kzAEcietc_ztNgP-dY7Y6hhNioIhaJBJxvY1fxdWg50D/pub?gid=893665091&single=true&output=csv';
+
+// ⚠️ REEMPLAZA esta URL con la URL de tu Web App (Apps Script → Implementar → Web App)
+// Ejemplo: 'https://script.google.com/macros/s/AKfycb.../exec'
+// URL del Apps Script del NUEVO sheet (si se deja vacía, la app funciona en SOLO LECTURA con el CSV publicado).
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwuwlC8eTJRR5E7HPU7vJHkGg8dYIeCyXm-SbLnoSvDhrDQnFvd_Dy4s35N-SE0loxH/exec';
+function requireWebApp(){
+  if(WEBAPP_URL) return true;
+  showToast('Modo solo lectura: falta configurar WEBAPP_URL (Apps Script del nuevo Sheet)','error');
+  return false;
+}
+
+// Columnas reales del Sheet — ID BULTOS se oculta en la vista, MES se calcula
+// NOTA: el Sheet real tiene 2 columnas extra ('ESTATUS' y 'ESTATUS VALIDADO') entre REGISTRO y BULTOS DESP
+// que no formaban parte del esquema original. Se agregan aquí como columnas ocultas de solo-passthrough
+// para que el frontend y el backend lean/escriban las 15 columnas reales en el orden correcto y no se
+// pisen ni se pierdan datos de ESTATUS DESPACHO / REGISTRO DESPACHO (antes quedaban fuera de rango).
+const SHEET_COLS   = ['ID BULTOS','FECHA PEDIDO','BPCS','DOCUMENTO','DESTINATARIO','FECHA CITA','CANTIDAD','TIPO','CJ PQ','CJ MD','CJ GR','PALETAS','BULTOS','VOLUMEN','USUARIO','REGISTRO','ESTATUS','ESTATUS VALIDADO','BULTOS DESP','ESTATUS DESPACHO','VALIDADO POR','REGISTRO DESPACHO','REGISTRADO POR'];
+const HIDDEN_PASSTHROUGH_COLS = ['ESTATUS','ESTATUS VALIDADO']; // CJ PQ / CJ MD / CJ GR / VOLUMEN / TIPO / PALETAS ahora SE MUESTRAN
+const NEW_COLS_PURPLE = ['TIPO','CJ PQ','CJ MD','CJ GR'];
+const NEW_COLS_ORANGE = ['PALETAS','VOLUMEN']; // no se muestran en la tabla, pero se conservan al guardar
+
+// Valor por defecto para el estatus de despacho cuando la celda llega vacía
+const ESTATUS_DESPACHO_DEFAULT = 'Pendiente';
+const ESTATUS_DESPACHO_OPCIONES = ['Pendiente','Revisado'];
+// Columna virtual añadida por la app
+const VIRTUAL_STATUS = 'STATUS';
+
+// ─────────────────────────────────────────
+// ESTADO
+// ─────────────────────────────────────────
+let allData      = [];
+let filteredData = [];
+let selectedRows = new Set();  // índices en allData
+let columnHeaders = [...SHEET_COLS];
+
+// ─────────────────────────────────────────
+// UTILIDADES FECHA / MES
+// ─────────────────────────────────────────
+const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function getMesFromFecha(v){
+  // Soporta YYYYMMDD o dd/mm/yyyy
+  const s = String(v).replace(/\D/g,'');
+  if(s.length===8){
+    const m = parseInt(s.slice(4,6),10);
+    return (m>=1&&m<=12) ? m : 0;
+  }
+  return 0;
+}
+function getMesLabel(v){
+  const m = getMesFromFecha(v);
+  return m ? MESES_ES[m-1] : '—';
+}
+function fmtDisplay(v){
+  if(!v) return '';
+  const s=String(v).replace(/\D/g,'');
+  return s.length===8?`${s.slice(6,8)}/${s.slice(4,6)}/${s.slice(0,4)}`:v;
+}
+function fmtStorage(v){
+  if(!v) return '';
+  const m=String(v).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m?`${m[3]}${m[2]}${m[1]}`:String(v).replace(/\D/g,'');
+}
+function isFechaCol(h){ return /fecha/i.test(h); }
+function isFechaCitaCol(h){ return /fecha.*cita/i.test(h); } // MES/filtros se basan en Fecha Cita
+
+// ─────────────────────────────────────────
+// STATUS VIRTUAL: Conforme si BULTOS > 0, Pendiente si no
+// ─────────────────────────────────────────
+function computeStatus(row){
+  const idxB = columnHeaders.findIndex(h=>h.toUpperCase()==='BULTOS');
+  const val  = idxB>=0 ? String(row[idxB]).trim() : '';
+  return (val && val!=='0' && val!=='') ? 'Conforme' : 'Pendiente';
+}
+
+const STATUS_STYLE = {
+  'Conforme' : 'badge-conforme',
+  'Pendiente': 'badge-pendiente',
+};
+
+// ─────────────────────────────────────────
+// CARGA AUTOMÁTICA desde Sheet
+// Lee SIEMPRE desde WebApp ?action=json (tiempo real, sin caché de Google)
+// ─────────────────────────────────────────
+const CB_CACHE_KEY='cb_cache_v2_nuevo_sheet';
+function loadFromCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem(CB_CACHE_KEY)||'null');
+    if(!c||!Array.isArray(c.data)||!c.data.length) return false;
+    parseJSON(c.data);
+    document.getElementById('syncTime').textContent='Datos guardados · actualizando…';
+    return true;
+  }catch(e){ return false; }
+}
+let _cbJsonDone=false;
+async function loadCsvFast(){
+  try{
+    const r=await fetch(SHEET_CSV_URL+'&_='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return false;
+    const txt=await r.text();
+    const head=(txt.split('\n')[0]||'');
+    if(!/bpcs/i.test(head)||!/documento/i.test(head)) return false;   // no es la hoja esperada
+    if(_cbJsonDone) return true;                                       // el Apps Script ya respondió: no pisarlo
+    parseCSV(txt);
+    const el=document.getElementById('syncTime'); if(el) el.textContent='CSV publicado · actualizando…';
+    return true;
+  }catch(e){ console.warn('[CSV] falló:',e.message); return false; }
+}
+async function loadSheet(){
+  _cbJsonDone=false;
+  if(!WEBAPP_URL){
+    showOverlay(true);
+    const ok = await loadCsvFast();
+    if(ok){
+      const now = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+      document.getElementById('syncTime').textContent = `CSV ${now} · solo lectura`;
+      showToast(`${allData.length} registros cargados (solo lectura)`, 'info');
+    } else { showToast('No se pudo leer el CSV publicado del Sheet','error'); if(!allData.length) loadDemoData(); }
+    showOverlay(false);
+    return;
+  }
+  if(!allData.length){ showOverlay(true); loadCsvFast().then(ok=>{ if(ok) showOverlay(false); }); }
+  try{
+    const controller = new AbortController();
+    const timeoutId = setTimeout(()=>controller.abort(), 25000); // 25s: nunca se queda colgado
+    let resp;
+    try{
+      resp = await fetch(WEBAPP_URL + '?action=json&t=' + Date.now(), { cache: 'no-store', signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    if(!json.ok) throw new Error(json.error || 'WebApp error');
+    _cbJsonDone=true;
+    parseJSON(json.data);
+    try{ localStorage.setItem(CB_CACHE_KEY, JSON.stringify({ts:Date.now(),data:json.data})); }catch(e){}
+    const now = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('syncTime').textContent = `Actualizado ${now}`;
+    showToast(`${allData.length} registros cargados`, 'success');
+  } catch(e){
+    const msg = (e && e.name === 'AbortError') ? 'Tiempo de espera agotado (25s) al conectar con el Sheet' : ('Error al conectar con el Sheet: ' + e.message);
+    console.warn('[loadSheet] Error:', msg);
+    showToast(msg, 'error');
+    if(!allData.length){
+      if(await loadCsvFast()) showToast('Sin conexión con el Apps Script: se muestran datos del CSV publicado (pueden tener minutos de retraso). Guardar cambios puede fallar.','info');
+      else loadDemoData();
+    } // si ya hay datos reales en pantalla, no se reemplazan por demo
+  }
+  showOverlay(false);
+}
+
+// Parsear respuesta JSON del WebApp (?action=json)
+// json.data = array de objetos { 'ID BULTOS': ..., 'BPCS': ..., ... }
+function parseJSON(dataObjs){
+  if(!dataObjs || dataObjs.length === 0){
+    columnHeaders = [...SHEET_COLS];
+    allData = [];
+    recalcIds();
+    applyFilters();
+    return;
+  }
+  columnHeaders = Object.keys(dataObjs[0]);
+  allData = dataObjs.map(obj => columnHeaders.map(h => String(obj[h] ?? '').trim()));
+  recalcIds();
+  applyFilters();
+}
+
+function reloadSheet(){ showToast('Actualizando datos...','info'); loadSheet(); }
+
+function parseCSV(csv){
+  const lines = csv.split('\n').filter(l=>l.trim());
+  if(lines.length<2){ loadDemoData(); return; }
+  const sep = lines[0].includes('\t')?'\t':',';
+  const csvH = lines[0].split(sep).map(h=>h.replace(/"/g,'').trim());
+  // Usar cabeceras del CSV si son válidas
+  if(csvH.length>=2) columnHeaders = csvH;
+  allData=[];
+  for(let i=1;i<lines.length;i++){
+    const cells=splitLine(lines[i],sep);
+    if(cells.every(c=>!c.trim())) continue;
+    allData.push(cells.map(c=>c.replace(/"/g,'').trim()));
+  }
+  recalcIds();
+  applyFilters();
+}
+
+function splitLine(line,sep){
+  const r=[];let q=false,c='';
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){q=!q;}
+    else if(ch===sep&&!q){r.push(c);c='';}
+    else c+=ch;
+  }
+  r.push(c);return r;
+}
+
+function loadDemoData(){
+  columnHeaders=[...SHEET_COLS];
+  const mk=(o)=>SHEET_COLS.map(c=>o[c]??'');
+  allData=[
+    mk({'ID BULTOS':1,'FECHA PEDIDO':'20260623','BPCS':'967310','DOCUMENTO':'4709456','DESTINATARIO':'IMPORTACIONES GYA S.A.C','FECHA CITA':'20260625','CANTIDAD':'36','BULTOS':'1','USUARIO':'IALCEDO'}),
+    mk({'ID BULTOS':2,'FECHA PEDIDO':'20260624','BPCS':'967311','DOCUMENTO':'4709510','DESTINATARIO':'COSMETIC PLANET S.A.C.','FECHA CITA':'20260625','CANTIDAD':'24','BULTOS':'1','USUARIO':'IALCEDO'}),
+  ];
+  recalcIds();
+  applyFilters();
+}
+
+// ─────────────────────────────────────────
+// CORRELATIVO — solo rellena si la celda está vacía
+// ─────────────────────────────────────────
+function recalcIds(){
+  const idx=columnHeaders.findIndex(h=>/id bultos/i.test(h));
+  if(idx>=0){
+    allData.forEach((row,i)=>{
+      if(!row[idx] || String(row[idx]).trim()==='') row[idx]=i+1;
+    });
+  }
+  normalizeDespachoDefaults();
+}
+
+// ─────────────────────────────────────────
+// ESTATUS DESPACHO — siempre inicia en "Pendiente" si viene vacío
+// ─────────────────────────────────────────
+function normalizeDespachoDefaults(){
+  const iE = columnHeaders.findIndex(h=>/^estatus\s*despacho$/i.test(h));
+  if(iE<0) return;
+  allData.forEach(row=>{
+    if(!row[iE] || String(row[iE]).trim()==='') row[iE]=ESTATUS_DESPACHO_DEFAULT;
+  });
+}
+
+// ─────────────────────────────────────────
+// CABECERAS — ID BULTOS oculto, MES virtual antes de STATUS
+// ─────────────────────────────────────────
+function renderHeaders(){
+  const tr=document.getElementById('tableHeader');
+  tr.innerHTML='';
+
+  // Checkbox "seleccionar todo"
+  const thCb=document.createElement('th');
+  thCb.className='px-3 py-2.5 w-10 text-white';
+  thCb.innerHTML='<input type="checkbox" class="cb-row" id="cbAll" title="Seleccionar todo">';
+  thCb.querySelector('#cbAll').addEventListener('change',e=>toggleAllRows(e.target.checked));
+  tr.appendChild(thCb);
+
+  // Columna virtual MES — va primero, antes de BPCS
+  const thM=document.createElement('th');
+  thM.className='px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap text-white';
+  thM.innerHTML='<span class="hl">MES</span>';
+  tr.appendChild(thM);
+
+  // Columnas del sheet — saltar ID BULTOS y REGISTRO (su info ya se muestra en STATUS)
+  columnHeaders.forEach((h,i)=>{
+    if(/id bultos/i.test(h)) return; // ocultar
+    if(/^registro$/i.test(h)) return; // ocultar: duplica la info de STATUS
+    if(HIDDEN_PASSTHROUGH_COLS.some(hc=>hc.toUpperCase()===h.toUpperCase())) return; // ocultar: columnas legacy del Sheet
+    const isDespachoCol = /^bultos\s*desp/i.test(h) || /^estatus\s*despacho$/i.test(h) || /^registro\s*despacho$/i.test(h) || /^validado\s*por$/i.test(h) || /^registrado\s*por$/i.test(h);
+    const th=document.createElement('th');
+    th.className='col-header-cell px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap text-white';
+    if(isDespachoCol) th.style.background='#16a34a';
+    else if(NEW_COLS_PURPLE.includes(String(h).toUpperCase())) th.style.background='#5b3fa0';
+    else if(NEW_COLS_ORANGE.includes(String(h).toUpperCase())) th.style.background='#c2610c';
+    th.title='Doble clic para editar';
+    th.innerHTML=`<span class="hl">${h}</span>`;
+    th.addEventListener('dblclick',()=>editHeader(th,i));
+    tr.appendChild(th);
+  });
+
+  // Columna virtual STATUS
+  const thS=document.createElement('th');
+  thS.className='px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap text-white';
+  thS.innerHTML='<span class="hl">STATUS</span>';
+  tr.appendChild(thS);
+}
+
+function editHeader(th,idx){
+  const cur=th.querySelector('.hl').textContent;
+  const inp=document.createElement('input');
+  inp.value=cur; inp.style.minWidth='80px';
+  th.innerHTML=''; th.appendChild(inp);
+  inp.focus(); inp.select();
+  const save=()=>{
+    const v=inp.value.trim()||cur;
+    columnHeaders[idx]=v;
+    renderHeaders(); renderTable();
+    showToast(`Columna → "${v}"`, 'success');
+  };
+  inp.addEventListener('blur',save);
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter') save();
+    if(e.key==='Escape'){columnHeaders[idx]=cur;renderHeaders();renderTable();}
+  });
+}
+
+// ─────────────────────────────────────────
+// IMPORTAR XLS / XLSX — vía Modal
+// Flujo: 1) Selecciona archivo (click o drag&drop)
+//        2) Valida BPCS duplicado (dentro del archivo Y contra el Sheet)
+//        3) Si hay duplicados: bloquea y avisa. Si no: sincroniza.
+// ─────────────────────────────────────────
+let pendingXlsFile = null;
+
+// ─────────────────────────────────────────
+// MIGRAR ESTATUS HISTÓRICO (ESTATUS DESPACHO en bloque)
+// ─────────────────────────────────────────
+function getMigrateMode(){
+  const el = document.querySelector('input[name="migrateMode"]:checked');
+  return el ? el.value : 'sinEstatus';
+}
+
+// Devuelve los índices (en allData) que coinciden con el modo/criterio elegido
+function getMigrateMatches(){
+  const iEst = columnHeaders.findIndex(h=>/^estatus\s*despacho$/i.test(h));
+  const iFecha = columnHeaders.findIndex(h=>isFechaCitaCol(h));
+  if(iEst<0) return [];
+
+  const mode = getMigrateMode();
+  const fechaLimite = document.getElementById('migrateFechaLimite').value.replace(/-/g,'');
+
+  const idxs = [];
+  allData.forEach((row, i)=>{
+    const estVal = String(row[iEst]||'').trim();
+    if(mode === 'sinEstatus'){
+      if(estVal === '') idxs.push(i);
+    } else if(mode === 'fechaCita'){
+      if(!fechaLimite || iFecha<0) return;
+      const rf = String(row[iFecha]||'').replace(/\D/g,'');
+      if(rf && rf.length===8 && rf<=fechaLimite && estVal !== 'Revisado') idxs.push(i);
+    } else if(mode === 'todos'){
+      if(estVal !== 'Revisado') idxs.push(i);
+    }
+  });
+  return idxs;
+}
+
+function updateMigratePreview(){
+  const box = document.getElementById('migratePreview');
+  const mode = getMigrateMode();
+  if(mode === 'fechaCita' && !document.getElementById('migrateFechaLimite').value){
+    box.textContent = 'Selecciona una fecha límite para calcular cuántos pedidos se verán afectados.';
+    return;
+  }
+  const n = getMigrateMatches().length;
+  if(n === 0){
+    box.textContent = 'No hay pedidos que coincidan con este criterio. Nada que migrar.';
+  } else {
+    box.textContent = `Se marcarán ${n.toLocaleString('es-PE')} pedido${n>1?'s':''} como "Revisado".`;
+  }
+}
+
+function openMigrateModal(){
+  document.querySelector('input[name="migrateMode"][value="sinEstatus"]').checked = true;
+  document.getElementById('migrateFechaLimite').value = '';
+  document.getElementById('migrateError').style.display = 'none';
+  document.getElementById('migrateError').textContent = '';
+  document.getElementById('migrateOverlay').style.display = 'flex';
+  updateMigratePreview();
+}
+
+function closeMigrateModal(){
+  document.getElementById('migrateOverlay').style.display = 'none';
+}
+
+async function confirmMigrate(){
+  const iEst = columnHeaders.findIndex(h=>/^estatus\s*despacho$/i.test(h));
+  const iReg = columnHeaders.findIndex(h=>/^registro\s*despacho$/i.test(h));
+  const errBox = document.getElementById('migrateError');
+  errBox.style.display = 'none';
+  if(!WEBAPP_URL){ errBox.textContent='Modo solo lectura: configura WEBAPP_URL (Apps Script del nuevo Sheet).'; errBox.style.display='block'; return; }
+
+  if(iEst<0){
+    errBox.textContent = 'No se encontró la columna ESTATUS DESPACHO. Actualiza el Sheet (ejecuta "Configurar hoja" en Apps Script) antes de migrar.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  const idxs = getMigrateMatches();
+  if(!idxs.length){
+    errBox.textContent = 'No hay pedidos que coincidan con el criterio seleccionado.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('migrateSendBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Migrando...';
+
+  const now = new Date();
+  const stamp = now.toLocaleDateString('es-PE')+' '+now.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  const changedRows = [];
+  idxs.forEach(i=>{
+    allData[i][iEst] = 'Revisado';
+    if(iReg>=0) allData[i][iReg] = stamp + ' (migración)';
+    changedRows.push([...allData[i]]);
+  });
+
+  try{
+    // Un solo POST con todas las filas modificadas (acción bulk soportada por el backend)
+    await postToSheet('saveEdits', { rows: changedRows });
+    showToast(`✓ ${idxs.length} pedido${idxs.length>1?'s':''} migrado${idxs.length>1?'s':''} a "Revisado"`, 'success');
+    closeMigrateModal();
+    applyFilters();      // refresca KPIs y tabla de Bultos
+    if(document.getElementById('sectionEstatus').classList.contains('sec-visible')){
+      renderEstatusTable();
+    }
+  } catch(err){
+    errBox.textContent = 'Error al migrar: ' + err.message;
+    errBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+function openUploadModal(){
+  pendingXlsFile = null;
+  document.getElementById('uploadFileName').style.display = 'none';
+  document.getElementById('uploadFileName').textContent = '';
+  document.getElementById('uploadError').style.display = 'none';
+  document.getElementById('uploadError').textContent = '';
+  document.getElementById('uploadSendBtn').disabled = true;
+  document.getElementById('uploadDropzone').classList.remove('dragover');
+  document.getElementById('importXlsInput').value = '';
+  document.getElementById('uploadOverlay').style.display = 'flex';
+}
+
+function closeUploadModal(){
+  document.getElementById('uploadOverlay').style.display = 'none';
+}
+
+function handleFileSelected(file){
+  if(!file) return;
+  if(!/\.(xls|xlsx|xlsb|xlsm)$/i.test(file.name)){
+    showUploadError('Solo se aceptan archivos .xls o .xlsx');
+    return;
+  }
+  pendingXlsFile = file;
+  document.getElementById('uploadError').style.display = 'none';
+  document.getElementById('uploadFileName').textContent = '📄 ' + file.name;
+  document.getElementById('uploadFileName').style.display = 'block';
+  document.getElementById('uploadSendBtn').disabled = false;
+}
+
+function showUploadError(msg){
+  const err = document.getElementById('uploadError');
+  err.textContent = msg;
+  err.style.display = 'block';
+}
+
+// Drag & drop
+(function initDropzone(){
+  document.addEventListener('DOMContentLoaded', () => {
+    const dz = document.getElementById('uploadDropzone');
+    if(!dz) return;
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      if(e.dataTransfer.files && e.dataTransfer.files[0]) handleFileSelected(e.dataTransfer.files[0]);
+    });
+  });
+})();
+
+async function confirmUploadXLS(){
+  if(!pendingXlsFile) return;
+  if(!WEBAPP_URL){ showUploadError('Modo solo lectura: configura WEBAPP_URL (Apps Script del nuevo Sheet) antes de subir información.'); return; }
+  const file = pendingXlsFile;
+  document.getElementById('uploadSendBtn').disabled = true;
+  showToast('Leyendo archivo...', 'info');
+
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb   = XLSX.read(data, { type:'array', cellDates:false, raw:false });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', blankrows:false });
+
+      if(!rows || rows.length < 2){
+        showUploadError('El archivo está vacío o no tiene datos');
+        document.getElementById('uploadSendBtn').disabled = false;
+        return;
+      }
+
+      const fileHeads     = rows[0].map(h => String(h ?? '').trim());
+      const expectedOrder = [...SHEET_COLS];
+
+      const presentCols = new Set(expectedOrder.filter(c => fileHeads.some(h => h.toUpperCase() === c.toUpperCase())));
+      const newData = rows.slice(1)
+        .filter(r => r.some(c => String(c ?? '').trim() !== ''))
+        .map(r => expectedOrder.map(col => {
+          const srcIdx = fileHeads.findIndex(h => h.toUpperCase() === col.toUpperCase());
+          return srcIdx >= 0 ? String(r[srcIdx] ?? '').trim() : '';
+        }));
+
+      if(newData.length === 0){
+        showUploadError('El archivo no tiene filas con datos');
+        document.getElementById('uploadSendBtn').disabled = false;
+        return;
+      }
+
+      // ── Traer datos frescos del Sheet (para validar duplicados y vista previa) ──
+      showToast('Verificando pedidos (BPCS)...', 'info');
+      let baseData = [...allData]; // fallback: memoria local
+
+      if(WEBAPP_URL){
+        try{
+          const resp = await fetch(WEBAPP_URL + '?action=csv', { cache: 'no-store' });
+          if(resp.ok){
+            const text = await resp.text();
+            const lines = text.split('\n').filter(l => l.trim());
+            if(lines.length >= 2){
+              const sep  = lines[0].includes('\t') ? '\t' : ',';
+              baseData = [];
+              for(let i = 1; i < lines.length; i++){
+                const cells = splitLine(lines[i], sep);
+                if(cells.every(c => !c.trim())) continue;
+                baseData.push(cells.map(c => c.replace(/"/g,'').trim()));
+              }
+            }
+          }
+        } catch(fetchErr){
+          console.warn('No se pudo traer datos frescos, usando memoria:', fetchErr.message);
+        }
+      }
+
+      const idxBpcs = expectedOrder.indexOf('BPCS');
+      const idxDoc  = expectedOrder.indexOf('DOCUMENTO');
+
+      // ── VALIDACIÓN: BPCS (número de pedido) duplicado ──
+      // 1) Duplicado dentro del mismo archivo   2) Duplicado contra el Sheet
+      const codigosArchivo = {};
+      const dupEnArchivo    = new Set();
+      newData.forEach(row => {
+        const code = String(row[idxBpcs]).trim();
+        if(!code) return;
+        if(codigosArchivo[code]) dupEnArchivo.add(code);
+        codigosArchivo[code] = true;
+      });
+
+      const codigosSheet = new Set(
+        baseData.map(r => String(r[idxBpcs]).trim()).filter(Boolean)
+      );
+      const dupContraSheet = new Set();
+      newData.forEach(row => {
+        const code = String(row[idxBpcs]).trim();
+        if(code && codigosSheet.has(code)) dupContraSheet.add(code);
+      });
+
+      const todosDuplicados = Array.from(new Set([...dupEnArchivo, ...dupContraSheet]));
+
+      if(todosDuplicados.length > 0){
+        showUploadError(
+          `⚠ El número de pedido (BPCS) ${todosDuplicados.length > 1 ? 'ya está duplicado' : 'ya está duplicado'}: ${todosDuplicados.join(', ')}. Corrige el archivo e inténtalo de nuevo.`
+        );
+        document.getElementById('uploadSendBtn').disabled = false;
+        return; // ⛔ No se sube nada
+      }
+
+      // ── Sin duplicados: continuar con Merge (vista previa) + Sync ──
+      columnHeaders = expectedOrder;
+
+      const existingMap = {};
+      baseData.forEach((row, i) => {
+        const key = String(row[idxBpcs]).trim() + '|' + String(row[idxDoc]).trim();
+        existingMap[key] = i;
+      });
+
+      let insertados  = 0;
+      let actualizados = 0;
+      const hiddenIdxs = HIDDEN_PASSTHROUGH_COLS.map(hc => expectedOrder.findIndex(c=>c.toUpperCase()===hc.toUpperCase())).filter(i=>i>=0);
+
+      newData.forEach(row => {
+        const key = String(row[idxBpcs]).trim() + '|' + String(row[idxDoc]).trim();
+        if(existingMap.hasOwnProperty(key)){
+          // Solo se actualizan las columnas que el archivo trae; el resto (CJ, PALETAS, ESTATUS, despacho…) se conserva
+          const target = baseData[existingMap[key]];
+          expectedOrder.forEach((col, i) => {
+            if(i === 0) return;                                  // ID BULTOS nunca se toca
+            if(hiddenIdxs.includes(i)) return;                   // ESTATUS / ESTATUS VALIDADO se conservan
+            if(presentCols.has(col)) target[i] = row[i];
+          });
+          actualizados++;
+        } else {
+          baseData.push([...row]);
+          insertados++;
+        }
+      });
+
+      allData = baseData;
+      recalcIds();
+      selectedRows.clear();
+      applyFilters();
+      showToast(`✓ ${insertados} nuevos, ${actualizados} actualizados`, 'success');
+
+      // ── Enviar SOLO las filas del Excel (newData) al Sheet ──
+      if(WEBAPP_URL){
+        showToast('Sincronizando con el Sheet...', 'info');
+        try{
+          const payload = JSON.stringify({ action: 'bulkImport', rows: newData });
+          await fetch(WEBAPP_URL, {
+            method : 'POST',
+            mode   : 'no-cors',
+            body   : payload
+          });
+          showToast('✓ Datos enviados al Sheet correctamente', 'success');
+        } catch(postErr){
+          showToast('Error de red al sincronizar: ' + postErr.message, 'error');
+        }
+      }
+
+      closeUploadModal();
+
+    } catch(err){
+      showUploadError('Error al leer el archivo: ' + err.message);
+      document.getElementById('uploadSendBtn').disabled = false;
+      console.error(err);
+    }
+  };
+
+  reader.onerror = function(){
+    showUploadError('No se pudo leer el archivo');
+    document.getElementById('uploadSendBtn').disabled = false;
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+// ─────────────────────────────────────────
+// EXPORTAR XLS — todos los registros
+// ─────────────────────────────────────────
+function exportToXLS(){
+  if(!allData.length){ showToast('Sin datos para exportar', 'error'); return; }
+  _doExport(allData, 'control_bultos');
+}
+
+// ─────────────────────────────────────────
+// EXPORTAR SELECCIONADOS
+// ─────────────────────────────────────────
+function exportSelected(){
+  if(!selectedRows.size){ showToast('Selecciona al menos una fila', 'error'); return; }
+  const rows = [...selectedRows].map(i => allData[i]);
+  _doExport(rows, 'control_bultos_seleccion');
+}
+
+// ─────────────────────────────────────────
+// _doExport — núcleo de exportación
+// ─────────────────────────────────────────
+function _doExport(rows, baseName){
+  try{
+    const iF = columnHeaders.findIndex(h => isFechaCitaCol(h));
+
+    // Cabeceras: columnas del sheet (sin ID BULTOS oculto en vista, pero sí en export) + MES + STATUS
+    const heads = [...columnHeaders, 'MES', VIRTUAL_STATUS];
+
+    const exportRows = [
+      heads,
+      ...rows.map(row => {
+        const cells = row.map((cell, i) => {
+          // Fechas: devolver como string YYYYMMDD para evitar que Excel las reinterprete
+          if(isFechaCol(columnHeaders[i])){
+            return String(cell).replace(/\D/g,'').slice(0,8) || cell;
+          }
+          // Números: intentar convertir
+          const n = parseFloat(cell);
+          return (!isNaN(n) && cell !== '') ? n : (cell || '');
+        });
+        // Columna virtual MES
+        cells.push(iF >= 0 ? getMesLabel(row[iF]) : '');
+        // Columna virtual STATUS
+        cells.push(computeStatus(row));
+        return cells;
+      })
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(exportRows);
+
+    // Ancho de columnas
+    ws['!cols'] = heads.map((h, i) => {
+      if(/destinatario/i.test(h)) return { wch: 35 };
+      if(/documento/i.test(h))    return { wch: 18 };
+      return { wch: 14 };
+    });
+
+    // Estilo de cabecera (solo disponible en SheetJS Pro, pero no rompe en Community)
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Bultos');
+
+    const d = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    XLSX.writeFile(wb, `${baseName}_${d}.xlsx`, { compression: true });
+    showToast('✓ Archivo descargado', 'success');
+  } catch(err){
+    showToast('Error al exportar: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// ─────────────────────────────────────────
+// DESCARGAR PLANTILLA
+// ─────────────────────────────────────────
+function downloadTemplate(){
+  try{
+    // Columnas de la plantilla (sin ID BULTOS que es autogenerado)
+    const templateCols = ['FECHA PEDIDO','BPCS','DOCUMENTO','DESTINATARIO','FECHA CITA','CANTIDAD','BULTOS','USUARIO','REGISTRO'];
+    const exampleRow   = ['20260623','967310','4709456','IMPORTACIONES GYA S.A.C','20260625','36','3','J.PEREZ','14:22:01'];
+
+    const ws = XLSX.utils.aoa_to_sheet([templateCols, exampleRow]);
+
+    // Ancho de columnas
+    ws['!cols'] = templateCols.map(h=>{
+      if(/destinatario/i.test(h)) return {wch:35};
+      if(/documento/i.test(h))    return {wch:18};
+      return {wch:16};
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');
+    XLSX.writeFile(wb, 'plantilla_control_bultos.xlsx', {compression:true});
+    showToast('✓ Plantilla descargada', 'success');
+  } catch(err){
+    showToast('Error al generar plantilla: '+err.message, 'error');
+  }
+}
+
+
+// Status, Destinatario, Documento y BPCS solo filtran la TABLA,
+// NO los KPIs/gráficos (chartData).
+// ─────────────────────────────────────────
+let chartData = [];
+
+let _fT; function applyFiltersDebounced(){ clearTimeout(_fT); _fT=setTimeout(applyFilters,200); }
+function applyFilters(){
+  const g    = document.getElementById('globalSearch').value.toLowerCase();
+  const bpcs = document.getElementById('filterBpcs').value.toLowerCase();
+  const doc  = document.getElementById('filterDoc').value.toLowerCase();
+  const dest = document.getElementById('filterDest').value.toLowerCase();
+  const sta  = document.getElementById('filterStatus').value;
+  const mes  = document.getElementById('filterMes').value;
+  const from = document.getElementById('filterFechaDesde').value.replace(/-/g,'');
+  const to   = document.getElementById('filterFechaHasta').value.replace(/-/g,'');
+
+  const iB  = columnHeaders.findIndex(h=>/bpcs/i.test(h));
+  const iD  = columnHeaders.findIndex(h=>/documento/i.test(h));
+  const iDe = columnHeaders.findIndex(h=>/destinatario/i.test(h));
+  const iF  = columnHeaders.findIndex(h=>isFechaCitaCol(h));
+
+  // chartData: SOLO filtros de Mes y Rango de Fechas → alimenta KPIs
+  chartData = allData.filter(row=>{
+    if(mes && iF>=0 && getMesFromFecha(row[iF])!==parseInt(mes,10))     return false;
+    if((from||to) && iF>=0){
+      const rf=String(row[iF]).replace(/\D/g,'');
+      if(from && rf<from) return false;
+      if(to   && rf>to)   return false;
+    }
+    return true;
+  });
+
+  // filteredData: chartData + todos los demás filtros (tabla detalle)
+  filteredData = chartData.filter(row=>{
+    if(g && !row.join(' ').toLowerCase().includes(g))                    return false;
+    if(bpcs && iB>=0  && !String(row[iB]).toLowerCase().includes(bpcs)) return false;
+    if(doc  && iD>=0  && !String(row[iD]).toLowerCase().includes(doc))   return false;
+    if(dest && iDe>=0 && !String(row[iDe]).toLowerCase().includes(dest)) return false;
+    if(sta  && computeStatus(row)!==sta)                                  return false;
+    return true;
+  });
+
+  updateKPIs();
+  renderTable();
+  updateSelUI();
+}
+
+function clearFilters(){
+  ['globalSearch','filterBpcs','filterDoc','filterDest'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('filterStatus').value='';
+  document.getElementById('filterMes').value='';
+  document.getElementById('filterFechaDesde').value='';
+  document.getElementById('filterFechaHasta').value='';
+  applyFilters();
+}
+
+// ─────────────────────────────────────────
+// KPIs
+// ─────────────────────────────────────────
+function updateKPIs(){
+  const iC = columnHeaders.findIndex(h=>/cantidad/i.test(h));
+  const iB = columnHeaders.findIndex(h=>/^bultos$/i.test(h));
+  const iEst = columnHeaders.findIndex(h=>/^estatus\s*despacho$/i.test(h));
+
+  // KPIs siempre sobre chartData (no se ven afectados por Status, BPCS, Doc, Destinatario)
+  const total      = chartData.length;
+  const conformes  = chartData.filter(r=>computeStatus(r)==='Conforme').length;
+  const pendientes = chartData.filter(r=>computeStatus(r)==='Pendiente').length;
+
+  const unidadesTotal = chartData.reduce((s,r)=>s+(parseFloat(r[iC])||0), 0);
+  const unidadesPend  = chartData
+    .filter(r=>computeStatus(r)==='Pendiente')
+    .reduce((s,r)=>s+(parseFloat(r[iC])||0), 0);
+
+  const bultosTotal = chartData.reduce((s,r)=>s+(parseFloat(r[iB])||0), 0);
+
+  // Pendientes de Revisión: pedidos cuyo ESTATUS DESPACHO no está marcado "Revisado"
+  const revisados = iEst>=0 ? chartData.filter(r=>String(r[iEst]).trim()==='Revisado').length : 0;
+  const pendRevision = total - revisados;
+
+  // ── KPI 1: Total Pedidos — subtext: conformes / total general
+  document.getElementById('kpi-total').textContent    = total.toLocaleString('es-PE');
+  document.getElementById('kpi-total-sub').textContent= conformes.toLocaleString('es-PE')+' conf.';
+  document.getElementById('kpi-total-gen').textContent= total.toLocaleString('es-PE');
+
+  // ── KPI 2: Total Unidades — subtext: unidades de pendientes
+  document.getElementById('kpi-unidades').textContent     = unidadesTotal.toLocaleString('es-PE');
+  document.getElementById('kpi-unidades-pend').textContent= unidadesPend.toLocaleString('es-PE');
+
+  // ── KPI 3: Total Bultos — sumatoria total
+  document.getElementById('kpi-bultos').textContent = bultosTotal.toLocaleString('es-PE');
+
+  // ── KPI 4: Conformes — conteo pedidos con bultos
+  document.getElementById('kpi-conformes').textContent = conformes.toLocaleString('es-PE');
+
+  // ── KPI 5: Pendientes — conteo pedidos sin bultos
+  document.getElementById('kpi-pendientes').textContent = pendientes.toLocaleString('es-PE');
+
+  // ── KPI 6: Pendientes de Revisión — conteo pedidos con ESTATUS DESPACHO != "Revisado"
+  document.getElementById('kpi-pend-revision').textContent = pendRevision.toLocaleString('es-PE');
+  document.getElementById('kpi-revisados-sub').textContent = revisados.toLocaleString('es-PE')+' revisados';
+  document.getElementById('kpi-revision-gen').textContent  = total.toLocaleString('es-PE');
+}
+
+// ─────────────────────────────────────────
+// RENDERIZAR TABLA — sin paginación, scroll completo
+// ─────────────────────────────────────────
+function renderTable(){
+  renderHeaders();
+  const tbody=document.getElementById('tableBody');
+  tbody.innerHTML='';
+
+  if(!filteredData.length){
+    tbody.innerHTML=`<tr><td colspan="${columnHeaders.length+1}" class="text-center py-12 text-on-surface-variant">
+      <span class="material-symbols-outlined text-[48px] block mb-2 opacity-30">search_off</span>
+      Sin resultados</td></tr>`;
+    document.getElementById('totalEntries').textContent='0';
+    return;
+  }
+
+  const iId  = columnHeaders.findIndex(h=>/id bultos/i.test(h));
+  const iF   = columnHeaders.findIndex(h=>isFechaCitaCol(h));
+  const iBultosCol     = columnHeaders.findIndex(h=>/^bultos$/i.test(h));
+  const iBultosDespCol = columnHeaders.findIndex(h=>/^bultos\s*desp/i.test(h));
+
+  if(!_cbKeep) _cbLim=CB_PAGE; _cbKeep=false;
+  const _idxMap=new Map(); allData.forEach((r,i)=>_idxMap.set(r,i));
+  filteredData.slice(0,_cbLim).forEach((row)=>{
+    const globalIdx=_idxMap.get(row);
+    const tr=document.createElement('tr');
+    tr.className='zebra-row hover:bg-secondary-fixed-dim/20 transition-colors'+(selectedRows.has(globalIdx)?' row-selected':'');
+
+    // ── Alerta visual: BULTOS vs BULTOS DESPACHO no coinciden ──
+    if(iBultosCol>=0 && iBultosDespCol>=0){
+      const despRaw = row[iBultosDespCol];
+      const despTieneValor = despRaw!==undefined && despRaw!==null && String(despRaw).trim()!=='';
+      if(despTieneValor){
+        const vBultos = parseFloat(row[iBultosCol]);
+        const vDesp   = parseFloat(despRaw);
+        if(!isNaN(vBultos) && !isNaN(vDesp) && vBultos!==vDesp){
+          tr.classList.add('row-bultos-mismatch');
+        }
+      }
+    }
+
+    // Checkbox
+    const tdCb=document.createElement('td');
+    tdCb.className='px-3 py-3';
+    const cb=document.createElement('input');
+    cb.type='checkbox'; cb.className='cb-row';
+    cb.checked=selectedRows.has(globalIdx);
+    cb.addEventListener('change',()=>toggleRow(globalIdx,cb.checked));
+    tdCb.appendChild(cb);
+    tr.appendChild(tdCb);
+
+    const tdM=document.createElement('td');
+    tdM.className='px-4 py-2.5 text-[12px] font-semibold text-on-surface-variant tracking-wide';
+    tdM.textContent = iF>=0 ? getMesLabel(row[iF]) : '—';
+    tr.appendChild(tdM);
+
+    // Celdas de datos — ocultar ID BULTOS y REGISTRO (duplica STATUS)
+    row.forEach((cell,ci)=>{
+      if(ci===iId) return; // ocultar columna ID BULTOS
+      if(/^registro$/i.test(columnHeaders[ci])) return; // ocultar columna REGISTRO
+      if(HIDDEN_PASSTHROUGH_COLS.some(hc=>hc.toUpperCase()===String(columnHeaders[ci]).toUpperCase())) return; // ocultar columnas legacy
+      const headerName = columnHeaders[ci];
+      const isBultos          = /^bultos$/i.test(headerName);
+      const isBultosDesp      = /^bultos\s*desp/i.test(headerName);
+      const isEstatusDespacho = /^estatus\s*despacho$/i.test(headerName);
+      const isRegistroDespacho= /^registro\s*despacho$/i.test(headerName);
+
+      const td=document.createElement('td');
+
+      if(isBultosDesp){
+        // ── BULTOS DESP: input numérico siempre disponible para colocar los bultos despachados ──
+        td.className='px-4 py-2';
+        const inp=document.createElement('input');
+        inp.type='number'; inp.min='0'; inp.placeholder='0';
+        inp.value=cell||'';
+        inp.style.cssText='width:72px;background:#f4f6f9;border:1px solid #c4cdd9;border-radius:4px;padding:4px 6px;font-family:JetBrains Mono,monospace;font-size:12px;font-weight:600;text-align:center;color:#1a3a5c;outline:none';
+        inp.addEventListener('focus',()=>{ inp.style.borderColor='#1a3a5c'; inp.style.boxShadow='0 0 0 2px rgba(26,58,92,0.12)'; });
+        inp.addEventListener('blur',()=>{
+          inp.style.borderColor='#c4cdd9'; inp.style.boxShadow='none';
+          const v=inp.value.trim();
+          if(v===String(cell||'')) return; // sin cambios
+          if(despModalOpen) return;
+          const iVal=columnHeaders.findIndex(h=>/^validado\s*por$/i.test(h));
+          const iRegPor=columnHeaders.findIndex(h=>/^registrado\s*por$/i.test(h));
+          if(iVal<0 || iRegPor<0){
+            inp.value=cell||'';
+            showToast('Faltan las columnas VALIDADO POR / REGISTRADO POR en el Sheet','error');
+            return;
+          }
+          const iBp=columnHeaders.findIndex(h=>/^bpcs$/i.test(h));
+          const iDest=columnHeaders.findIndex(h=>/^destinatario$/i.test(h));
+          openDespModal({
+            info:`BPCS ${iBp>=0?row[iBp]:''} · ${iDest>=0?row[iDest]:''} · Bultos desp: ${v||'(vacío)'}`,
+            onConfirm: async (validado, registrado)=>{
+              const oldV=row[ci], oldVal=row[iVal], oldReg=row[iRegPor];
+              row[ci]=v; row[iVal]=validado; row[iRegPor]=registrado;
+              const ok = await safeUpsert(row,[ci,iVal,iRegPor]);
+              if(!ok){ row[ci]=oldV; row[iVal]=oldVal; row[iRegPor]=oldReg; }
+              renderTable();
+              if(ok) showToast('Bultos despachados guardados','success');
+            },
+            onCancel: ()=>{ inp.value=cell||''; showToast('Sin guardar: faltan VALIDADO POR y REGISTRADO POR','info'); }
+          });
+        });
+        inp.addEventListener('keydown',e=>{ if(e.key==='Enter') inp.blur(); });
+        td.appendChild(inp);
+      } else if(isEstatusDespacho){
+        // ── ESTATUS DESPACHO: lista Pendiente / Revisado (por defecto Pendiente) ──
+        td.className='px-4 py-2';
+        const sel=document.createElement('select');
+        const curVal = cell && ESTATUS_DESPACHO_OPCIONES.includes(cell) ? cell : ESTATUS_DESPACHO_DEFAULT;
+        sel.className='status-select';
+        sel.style.cssText='border:1px solid '+(curVal==='Revisado'?'#a9e8c1':'#f4e38a')+';font-size:11px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;background-color:'+(curVal==='Revisado'?'#dcfce7':'#fef9c3')+';color:'+(curVal==='Revisado'?'#15803d':'#a16207')+';outline:none;cursor:pointer';
+        ESTATUS_DESPACHO_OPCIONES.forEach(opt=>{
+          const o=document.createElement('option');
+          o.value=opt; o.textContent=opt;
+          if(opt===curVal) o.selected=true;
+          sel.appendChild(o);
+        });
+        sel.addEventListener('change',async ()=>{
+          const v=sel.value;
+          const iReg=columnHeaders.findIndex(h=>/^registro\s*despacho$/i.test(h));
+          const now=new Date();
+          const stamp=now.toLocaleDateString('es-PE')+' '+now.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+          const oldV=row[ci], oldReg=iReg>=0?row[iReg]:null;
+          row[ci]=v;
+          if(iReg>=0) row[iReg]=stamp;
+          const changed=iReg>=0?[ci,iReg]:[ci];
+          const ok = await safeUpsert(row,changed);
+          if(!ok){ row[ci]=oldV; if(iReg>=0) row[iReg]=oldReg; }
+          renderTable();
+          if(ok) showToast(`Estatus despacho → ${v}`,'success');
+        });
+        td.appendChild(sel);
+      } else if(/^validado\s*por$/i.test(headerName) || /^registrado\s*por$/i.test(headerName)){
+        // ── VALIDADO POR / REGISTRADO POR: solo lectura, se llenan al guardar BULTOS DESP ──
+        td.className='px-4 py-2.5 text-[12px] font-semibold text-on-surface-variant whitespace-nowrap';
+        td.textContent=cell||'—';
+      } else if(isRegistroDespacho){
+        // ── REGISTRO DESPACHO: solo lectura, se autocompleta al cambiar el estatus ──
+        td.className='px-4 py-2.5 font-mono text-[11px] text-on-surface-variant whitespace-nowrap';
+        td.textContent=cell||'—';
+      } else if(isFechaCol(headerName)){
+        td.className='px-4 py-2.5 font-mono text-[12px] text-on-surface-variant'+(editBultosMode?' editable-cell':'');
+        td.textContent=fmtDisplay(cell);
+        td.addEventListener('dblclick',()=>editCell(td,row,ci,true));
+      } else {
+        td.className='px-4 py-2.5 text-[13px]'+(editBultosMode?' editable-cell':'');
+        td.textContent=cell||'—';
+        td.addEventListener('dblclick',()=>editCell(td,row,ci,false));
+      }
+      if(isBultos){
+        td.dataset.bultos='1';
+        td.dataset.rowidx=globalIdx;
+        if(editBultosMode){
+          td.classList.add('bultos-edit-mode');
+          td.onclick=()=>editBultosCell(td);
+        }
+      }
+      tr.appendChild(td);
+    });
+
+    const tdS=document.createElement('td');
+    tdS.className='px-4 py-3';
+    const st=computeStatus(row);
+    const cls=STATUS_STYLE[st]||'badge-pendiente';
+    tdS.innerHTML=`<span class="${cls}">${st}</span>`;
+    tr.appendChild(tdS);
+
+    tbody.appendChild(tr);
+  });
+
+  if(filteredData.length>_cbLim){
+    tbody.insertAdjacentHTML('beforeend',`<tr id="more-bultos"><td colspan="${columnHeaders.length+1}" class="text-center py-3 text-[12px] text-on-surface-variant">Mostrando ${_cbLim.toLocaleString('es-PE')} de ${filteredData.length.toLocaleString('es-PE')} · <button class="underline font-semibold" onclick="cbMore()">Mostrar más</button></td></tr>`);
+    if(!window._cbObs) window._cbObs=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ window._cbObs.unobserve(e.target); cbMore(); } }),{rootMargin:'300px'});
+    const _m=document.getElementById('more-bultos'); if(_m) window._cbObs.observe(_m);
+  }
+  document.getElementById('totalEntries').textContent=filteredData.length.toLocaleString('es-PE');
+}
+const CB_PAGE=200; let _cbLim=CB_PAGE, _cbKeep=false;
+function cbMore(){ _cbLim+=CB_PAGE; _cbKeep=true; renderTable(); }
+
+// ─────────────────────────────────────────
+// EDICIÓN INLINE
+// ─────────────────────────────────────────
+function editCell(td,row,ci,isFecha){
+  if(!editBultosMode){
+    showToast('Presiona "Editar Bultos" para habilitar la edición', 'info');
+    return;
+  }
+  const orig=row[ci];
+  const disp=isFecha?fmtDisplay(orig):orig;
+  td.innerHTML='';
+  const inp=document.createElement('input');
+  inp.value=disp==='—'?'':disp;
+  if(isFecha) inp.placeholder='dd/mm/yyyy';
+  td.appendChild(inp); inp.focus(); inp.select();
+  const save=async ()=>{
+    let v=inp.value.trim();
+    const keyRow=[...row]; // valores originales para ubicar la fila en el Sheet
+    row[ci]=isFecha&&v?fmtStorage(v):v;
+    const ok = await safeUpsert(row,[ci],keyRow);
+    if(!ok) row[ci]=orig;
+    updateKPIs(); renderTable();
+    if(ok) showToast('Celda actualizada','success');
+  };
+  inp.addEventListener('blur',save);
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter') inp.blur();
+    if(e.key==='Escape'){row[ci]=orig;renderTable();}
+  });
+}
+
+// ─────────────────────────────────────────
+// SELECCIÓN DE FILAS
+// ─────────────────────────────────────────
+function toggleRow(idx,checked){
+  if(checked) selectedRows.add(idx);
+  else         selectedRows.delete(idx);
+  updateSelUI();
+  // Actualizar apariencia de la fila sin re-renderizar toda la tabla
+  const rows=document.querySelectorAll('#tableBody tr');
+  rows.forEach(tr=>{
+    const cb=tr.querySelector('.cb-row');
+    if(!cb) return;
+    // re-aplicar clase según estado actual
+  });
+  renderTable(); // simple: re-render para mantener sincronía visual
+}
+
+function toggleAllRows(checked){
+  filteredData.forEach(row=>{
+    const gi=allData.indexOf(row);
+    if(gi>=0){ checked?selectedRows.add(gi):selectedRows.delete(gi); }
+  });
+  updateSelUI();
+  renderTable();
+}
+
+function updateSelUI(){
+  const n=selectedRows.size;
+  const btn=document.getElementById('exportSelBtn');
+  document.getElementById('selCount').textContent=n;
+  document.getElementById('selSummary').textContent=n?`${n} fila${n>1?'s':''} seleccionada${n>1?'s':''}` : '';
+  btn.classList.toggle('visible', n>0);
+}
+
+// ─────────────────────────────────────────
+// OVERLAY / TOAST
+// ─────────────────────────────────────────
+function showOverlay(v){
+  document.getElementById('loadingOverlay').style.display=v?'flex':'none';
+}
+function showToast(msg,type='info'){
+  const t=document.getElementById('toast');
+  const c={success:'bg-green-600 text-white',error:'bg-red-600 text-white',info:'bg-primary text-white'};
+  t.className=`toast ${c[type]||c.info}`;
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ─────────────────────────────────────────
+// SINCRONIZACIÓN CON APPS SCRIPT
+// Con no-cors el browser bloquea Content-Type: application/json en el body.
+// Solución: enviamos el JSON como parámetro ?payload= en la URL (GET-style POST).
+// El Apps Script lo lee de e.parameter.payload.
+// ─────────────────────────────────────────
+async function postToSheet(action, data, callback){
+  if(!WEBAPP_URL){
+    if(callback) callback(false, null);
+    return;
+  }
+  const payload = JSON.stringify({ action, ...data });
+  // Estrategia doble:
+  // - body texto plano → Apps Script lo lee en e.postData.contents (más confiable)
+  // - ?payload= en URL → Apps Script lo lee en e.parameter.payload (backup)
+  // no-cors impide leer la respuesta pero el POST llega al Sheet correctamente.
+  // Para payloads grandes (ej. migraciones masivas) se omite el parámetro de URL
+  // para no exceder límites de longitud; el body POST es suficiente.
+  const url = payload.length < 6000
+    ? WEBAPP_URL + '?payload=' + encodeURIComponent(payload)
+    : WEBAPP_URL;
+  try{
+    await fetch(url, {
+      method : 'POST',
+      mode   : 'no-cors',
+      body   : payload   // texto plano → e.postData.contents en Apps Script
+    });
+    if(callback) callback(true, null);
+  } catch(err){
+    console.warn('[Sheet sync] Error:', err.message);
+    showToast('Error al sincronizar: ' + err.message, 'error');
+    if(callback) callback(false, null);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// REPORTE DE BULTOS POR FECHA DE CITA (formato planilla)
+// Cabeceras fijas: FECHA PEDIDO | BPCS | DOCUMENTO | DESTINATARIO |
+//                  Fecha Cita | CANTIDAD | BULTOS  + fila de total de BULTOS
+// ═══════════════════════════════════════════════════════
+const REP_COLS = [
+  { head:'FECHA PEDIDO', match:/fecha\s*pedido/i,  width:15, type:'fecha' },
+  { head:'BPCS',         match:/bpcs/i,            width:11, type:'num'   },
+  { head:'DOCUMENTO',    match:/documento/i,       width:17, type:'num'   },
+  { head:'DESTINATARIO', match:/destinatario/i,    width:42, type:'texto' },
+  { head:'Fecha Cita',   match:/fecha\s*cita/i,    width:13, type:'fecha' },
+  { head:'CANTIDAD',     match:/cantidad/i,        width:12, type:'num'   },
+  { head:'BULTOS',       match:/^bultos$/i,        width:10, type:'num'   },
+];
+
+function repColIndexes(){
+  return REP_COLS.map(c => columnHeaders.findIndex(h => c.match.test(String(h).trim())));
+}
+
+function openReporteModal(){
+  if(!allData.length){ showToast('Sin datos cargados','error'); return; }
+  document.getElementById('repError').style.display='none';
+  document.getElementById('repSoloConBultos').checked = false;
+  document.getElementById('repFechaDesde').value = '';
+  document.getElementById('repFechaHasta').value = '';
+
+  // Poblar lista de Fechas de Cita existentes (descendente)
+  const iCita = columnHeaders.findIndex(h => isFechaCitaCol(h));
+  const sel = document.getElementById('repFechaLista');
+  sel.innerHTML = '<option value="">— Seleccione una fecha —</option>';
+  if(iCita >= 0){
+    const conteo = {};
+    allData.forEach(r=>{
+      const f = String(r[iCita]).replace(/\D/g,'').slice(0,8);
+      if(f.length === 8) conteo[f] = (conteo[f]||0) + 1;
+    });
+    Object.keys(conteo).sort().reverse().forEach(f=>{
+      const o = document.createElement('option');
+      o.value = f;
+      o.textContent = `${fmtDisplay(f)}  (${conteo[f]} pedidos)`;
+      sel.appendChild(o);
+    });
+  }
+  document.getElementById('reporteOverlay').style.display='flex';
+  updateRepResumen();
+}
+
+function closeReporteModal(){
+  document.getElementById('reporteOverlay').style.display='none';
+}
+
+function onRepFechaListaChange(){
+  const f = document.getElementById('repFechaLista').value;
+  if(f){
+    const iso = `${f.slice(0,4)}-${f.slice(4,6)}-${f.slice(6,8)}`;
+    document.getElementById('repFechaDesde').value = iso;
+    document.getElementById('repFechaHasta').value = iso;
+  }
+  updateRepResumen();
+}
+
+// Filas que cumplen el filtro del modal
+function getRepRows(){
+  const iCita = columnHeaders.findIndex(h => isFechaCitaCol(h));
+  const iBul  = columnHeaders.findIndex(h => /^bultos$/i.test(String(h).trim()));
+  const from  = document.getElementById('repFechaDesde').value.replace(/-/g,'');
+  const to    = document.getElementById('repFechaHasta').value.replace(/-/g,'');
+  const soloConBultos = document.getElementById('repSoloConBultos').checked;
+
+  return allData.filter(row=>{
+    if(iCita >= 0 && (from || to)){
+      const f = String(row[iCita]).replace(/\D/g,'').slice(0,8);
+      if(!f) return false;
+      if(from && f < from) return false;
+      if(to   && f > to)   return false;
+    }
+    if(soloConBultos && iBul >= 0){
+      const b = parseFloat(String(row[iBul]).replace(/[^\d.-]/g,''));
+      if(!(b > 0)) return false;
+    }
+    return true;
+  }).sort((a,b)=>{
+    const iBp = columnHeaders.findIndex(h=>/bpcs/i.test(h));
+    if(iBp < 0) return 0;
+    return (parseFloat(a[iBp])||0) - (parseFloat(b[iBp])||0);
+  });
+}
+
+function updateRepResumen(){
+  const box  = document.getElementById('repResumen');
+  const btn  = document.getElementById('repDownloadBtn');
+  const from = document.getElementById('repFechaDesde').value;
+  const to   = document.getElementById('repFechaHasta').value;
+
+  if(!from && !to){
+    box.innerHTML = 'Seleccione una Fecha de Cita (o un rango) para ver el resumen.';
+    btn.disabled = true;
+    return;
+  }
+  const rows = getRepRows();
+  const iCant = columnHeaders.findIndex(h=>/cantidad/i.test(h));
+  const iBul  = columnHeaders.findIndex(h=>/^bultos$/i.test(String(h).trim()));
+  const sum = (idx)=> idx<0 ? 0 : rows.reduce((a,r)=> a + (parseFloat(String(r[idx]).replace(/[^\d.-]/g,''))||0), 0);
+
+  btn.disabled = rows.length === 0;
+  box.innerHTML = rows.length
+    ? `<b>${rows.length}</b> pedidos &nbsp;•&nbsp; <b>${sum(iCant).toLocaleString('es-PE')}</b> unidades &nbsp;•&nbsp; <b>${sum(iBul).toLocaleString('es-PE')}</b> bultos`
+    : 'No hay pedidos para el filtro seleccionado.';
+}
+
+async function descargarReporte(){
+  const rows = getRepRows();
+  if(!rows.length){ showToast('No hay pedidos para el filtro seleccionado','error'); return; }
+  if(typeof ExcelJS === 'undefined'){ showToast('No se pudo cargar el motor de Excel (ExcelJS)','error'); return; }
+
+  try{
+    const idxs = repColIndexes();
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Control de Pedidos';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Reporte', { views:[{ state:'frozen', ySplit:1 }] });
+    ws.columns = REP_COLS.map(c=>({ width:c.width }));
+
+    const HEAD_BG = 'FF4472C4', WHITE = 'FFFFFFFF';
+    const thin = { style:'thin', color:{ argb:'FF8EA9DB' } };
+    const allBorders = { top:thin, left:thin, bottom:thin, right:thin };
+
+    // ── Cabecera ──
+    const headerRow = ws.addRow(REP_COLS.map(c=>c.head));
+    headerRow.eachCell(cell=>{
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:HEAD_BG } };
+      cell.font = { name:'Calibri', size:11, bold:true, color:{ argb:WHITE } };
+      cell.alignment = { horizontal:'center', vertical:'middle' };
+      cell.border = allBorders;
+    });
+    headerRow.height = 19;
+
+    // ── Detalle ──
+    let totalBultos = 0, totalCant = 0;
+    rows.forEach(r=>{
+      const vals = REP_COLS.map((c,k)=>{
+        const raw = idxs[k] >= 0 ? String(r[idxs[k]] ?? '').trim() : '';
+        if(c.type === 'fecha') return raw.replace(/\D/g,'').slice(0,8) || raw;  // YYYYMMDD como texto
+        if(c.type === 'num'){
+          const n = parseFloat(raw.replace(/[^\d.-]/g,''));
+          return isNaN(n) ? raw : n;
+        }
+        return raw;
+      });
+      totalCant   += (typeof vals[5] === 'number' ? vals[5] : 0);
+      totalBultos += (typeof vals[6] === 'number' ? vals[6] : 0);
+
+      const row = ws.addRow(vals);
+      row.eachCell((cell, col)=>{
+        cell.font = { name:'Calibri', size:11, color:{ argb:'FF000000' } };
+        cell.alignment = { horizontal:'center', vertical:'middle' };
+        cell.border = allBorders;
+        if(REP_COLS[col-1].type === 'fecha') cell.numFmt = '@';
+      });
+      row.height = 16;
+    });
+
+    // ── Fila de total (solo CANTIDAD / BULTOS, como en la planilla) ──
+    const totalRow = ws.addRow(['','','','','', totalCant, totalBultos]);
+    [6,7].forEach(col=>{
+      const cell = totalRow.getCell(col);
+      cell.font = { name:'Calibri', size:11, bold:true };
+      cell.alignment = { horizontal:'center', vertical:'middle' };
+      cell.border = allBorders;
+    });
+    totalRow.height = 17;
+
+    // ── Descarga ──
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const f = (document.getElementById('repFechaDesde').value || '').replace(/-/g,'');
+    const t = (document.getElementById('repFechaHasta').value || '').replace(/-/g,'');
+    const sufijo = (f && t && f === t) ? f : `${f||'inicio'}_${t||'fin'}`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `reporte_bultos_${sufijo}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+
+    closeReporteModal();
+    showToast(`✓ Reporte descargado (${rows.length} pedidos / ${totalBultos} bultos)`,'success');
+  } catch(err){
+    const box = document.getElementById('repError');
+    box.textContent = 'Error al generar el reporte: ' + err.message;
+    box.style.display = 'block';
+    console.error(err);
+  }
+}
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function(){
+  // Garantizar estado inicial de secciones
+  document.getElementById('sectionBultos').classList.add('sec-visible');
+  document.getElementById('sectionOtif').classList.remove('sec-visible');
+  loadFromCache();
+  loadSheet();
+});
+</script>
+<!-- ── Modal PIN ── -->
+<div id="pinOverlay" class="pin-overlay" style="display:none" onclick="if(event.target===this)closePinModal()">
+  <div class="pin-box">
+    <div style="font-size:36px;margin-bottom:8px">🔐</div>
+    <h2>Acceso a Edición</h2>
+    <p>Ingrese su PIN para habilitar la edición de BULTOS</p>
+    <input id="pinInput" class="pin-input" type="password" maxlength="20"
+      placeholder="PIN de acceso"
+      onkeydown="if(event.key==='Enter')confirmPin()"
+      oninput="document.getElementById('pinInput').classList.remove('error');document.getElementById('pinError').textContent=''">
+    <div id="pinError" class="pin-error"></div>
+    <div class="pin-btns">
+      <button class="pin-cancel" onclick="closePinModal()">Cancelar</button>
+      <button class="pin-confirm" onclick="confirmPin()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Subir XLS ── -->
+<div id="uploadOverlay" class="upload-overlay" style="display:none" onclick="if(event.target===this)closeUploadModal()">
+  <div class="upload-box">
+    <div class="upload-header">
+      <span class="material-symbols-outlined">upload_file</span>
+      <div>
+        <h2>Subir Información — Bultos</h2>
+        <p>Archivo .xls con el formato de la plantilla</p>
+      </div>
+      <button class="upload-close" onclick="closeUploadModal()">✕</button>
+    </div>
+    <div class="upload-body">
+      <div id="uploadDropzone" class="upload-dropzone" onclick="document.getElementById('importXlsInput').click()">
+        <span class="material-symbols-outlined">cloud_upload</span>
+        <p>Haz clic o arrastra tu archivo .xls aquí</p>
+        <p class="upload-hint">Solo archivos .xls o .xlsx</p>
+      </div>
+      <div id="uploadFileName" class="upload-filename" style="display:none"></div>
+      <div id="uploadError" class="upload-error" style="display:none"></div>
+    </div>
+    <div class="upload-footer">
+      <button class="pin-cancel" onclick="closeUploadModal()">Cancelar</button>
+      <button id="uploadSendBtn" class="pin-confirm" onclick="confirmUploadXLS()" disabled>▷ Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Descargar Reporte (por Fecha de Cita) ── -->
+<div id="reporteOverlay" class="upload-overlay" style="display:none" onclick="if(event.target===this)closeReporteModal()">
+  <div class="upload-box" style="width:470px">
+    <div class="upload-header">
+      <span class="material-symbols-outlined">description</span>
+      <div>
+        <h2>Descargar Reporte de Bultos</h2>
+        <p>Filtre por Fecha de Cita y descargue el reporte con formato</p>
+      </div>
+      <button class="upload-close" onclick="closeReporteModal()">✕</button>
+    </div>
+    <div class="upload-body" style="padding:18px 20px">
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;color:#5b6b7f;text-transform:uppercase;letter-spacing:.4px">Fecha de Cita disponible</label>
+        <select id="repFechaLista" onchange="onRepFechaListaChange()"
+          style="width:100%;margin-top:5px;border:1px solid #cbd5e1;border-radius:6px;padding:7px 9px;font-size:13px;background:#fff">
+          <option value="">— Seleccione una fecha —</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5b6b7f;text-transform:uppercase;letter-spacing:.4px">Desde</label>
+          <input id="repFechaDesde" type="date" onchange="updateRepResumen()"
+            style="width:100%;margin-top:5px;border:1px solid #cbd5e1;border-radius:6px;padding:6px 9px;font-size:13px">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5b6b7f;text-transform:uppercase;letter-spacing:.4px">Hasta</label>
+          <input id="repFechaHasta" type="date" onchange="updateRepResumen()"
+            style="width:100%;margin-top:5px;border:1px solid #cbd5e1;border-radius:6px;padding:6px 9px;font-size:13px">
+        </div>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:#334155;margin-bottom:12px;cursor:pointer">
+        <input id="repSoloConBultos" type="checkbox" onchange="updateRepResumen()">
+        Incluir solo pedidos con bultos registrados
+      </label>
+
+      <div id="repResumen"
+        style="background:#f1f5f9;border:1px solid #dbe3ec;border-radius:8px;padding:10px 12px;font-size:12px;color:#0f2745">
+        Seleccione una fecha para ver el resumen.
+      </div>
+
+      <div id="repError" class="upload-error" style="display:none"></div>
+    </div>
+    <div class="upload-footer">
+      <button class="pin-cancel" onclick="closeReporteModal()">Cancelar</button>
+      <button id="repDownloadBtn" class="pin-confirm" onclick="descargarReporte()" disabled>⤓ Descargar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Migrar Histórico (ESTATUS DESPACHO) ── -->
+<div id="migrateOverlay" class="upload-overlay" style="display:none" onclick="if(event.target===this)closeMigrateModal()">
+  <div class="upload-box" style="width:460px">
+    <div class="upload-header" style="background:#0f2745">
+      <span class="material-symbols-outlined">fact_check</span>
+      <div>
+        <h2>Migrar Estatus Histórico</h2>
+        <p>Marca pedidos antiguos como "Revisado" en bloque</p>
+      </div>
+      <button class="upload-close" onclick="closeMigrateModal()">✕</button>
+    </div>
+    <div class="upload-body">
+      <p style="font-size:12px;color:#5a6b80;line-height:1.5;margin-bottom:14px">
+        Los pedidos cargados antes de activar el control de revisión no tienen <b>ESTATUS DESPACHO</b> asignado
+        y aparecen como "Pendiente" en el KPI. Usa esta herramienta para marcarlos como <b>Revisado</b> de una sola vez.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:#0f1923">
+          <input type="radio" name="migrateMode" value="sinEstatus" checked onchange="updateMigratePreview()" style="margin-top:3px">
+          <span><b>Solo pedidos sin estatus asignado</b><br>
+            <span style="color:#8a9ab0;font-size:11.5px">Opción recomendada — no toca pedidos que ya fueron marcados manualmente.</span>
+          </span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:#0f1923">
+          <input type="radio" name="migrateMode" value="fechaCita" onchange="updateMigratePreview()" style="margin-top:3px">
+          <span><b>Pedidos con Fecha Cita anterior o igual a:</b><br>
+            <input id="migrateFechaLimite" type="date" onchange="updateMigratePreview()"
+              class="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1 text-[13px] mt-1.5" style="width:170px">
+          </span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:#0f1923">
+          <input type="radio" name="migrateMode" value="todos" onchange="updateMigratePreview()" style="margin-top:3px">
+          <span><b>Todos los pedidos actualmente cargados</b><br>
+            <span style="color:#8a9ab0;font-size:11.5px">Sobrescribe también los que ya estén marcados "Revisado" o "Pendiente".</span>
+          </span>
+        </label>
+      </div>
+
+      <div id="migratePreview" style="margin-top:16px;font-size:12.5px;font-weight:700;color:#1a3a5c;background:#f0f5fb;border-radius:6px;padding:10px 12px">
+        Calculando...
+      </div>
+      <div id="migrateError" class="upload-error" style="display:none"></div>
+    </div>
+    <div class="upload-footer">
+      <button class="pin-cancel" onclick="closeMigrateModal()">Cancelar</button>
+      <button id="migrateSendBtn" class="pin-confirm" style="background:#166534" onclick="confirmMigrate()">✓ Marcar como Revisado</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ─────────────────────────────────────────
+// EDICIÓN BULTOS CON PIN
+// ─────────────────────────────────────────
+const VALID_PINS = ['LCUBA','OBERNALES'];
+let editBultosMode = false;
+let bultosEdits = {}; // { globalRowIndex: newValue }
+
+function openPinModal(){
+  if(editBultosMode){ cancelBultosEdit(); return; }
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinError').textContent='';
+  document.getElementById('pinInput').classList.remove('error');
+  document.getElementById('pinOverlay').style.display='flex';
+  setTimeout(()=>document.getElementById('pinInput').focus(),100);
+}
+
+function closePinModal(){
+  document.getElementById('pinOverlay').style.display='none';
+}
+
+function confirmPin(){
+  const val = document.getElementById('pinInput').value.trim().toUpperCase();
+  if(VALID_PINS.includes(val)){
+    closePinModal();
+    activateBultosEdit();
+  } else {
+    const inp = document.getElementById('pinInput');
+    inp.classList.add('error');
+    document.getElementById('pinError').textContent='PIN incorrecto. Intente nuevamente.';
+    inp.value='';
+    setTimeout(()=>inp.focus(),50);
+  }
+}
+
+function activateBultosEdit(){
+  editBultosMode = true;
+  bultosEdits = {};
+
+  // Cambiar botón Editar → estilo activo
+  const btnEdit = document.getElementById('btnEditBultos');
+  btnEdit.innerHTML='<span class="material-symbols-outlined text-[15px]">lock_open</span>Cancelar Edición';
+  btnEdit.style.background='#fef3c7';
+  btnEdit.style.color='#b45309';
+  btnEdit.style.borderColor='#d97706';
+
+  // Mostrar botón Guardar
+  document.getElementById('btnSaveBultos').classList.add('visible');
+
+  // Resaltar celdas BULTOS visibles
+  highlightBultosCells(true);
+  showToast('Modo edición BULTOS activado','info');
+}
+
+function cancelBultosEdit(){
+  editBultosMode = false;
+  bultosEdits = {};
+  const btnEdit = document.getElementById('btnEditBultos');
+  btnEdit.innerHTML='<span class="material-symbols-outlined text-[15px]">lock</span>Editar Bultos';
+  btnEdit.style.background='';
+  btnEdit.style.color='#d97706';
+  btnEdit.style.borderColor='#d97706';
+  document.getElementById('btnSaveBultos').classList.remove('visible');
+  highlightBultosCells(false);
+  showToast('Edición cancelada','info');
+}
+
+function highlightBultosCells(active){
+  const iB = columnHeaders.findIndex(h=>/^bultos$/i.test(h));
+  if(iB<0) return;
+  // El índice de columna visual: checkbox(0) + MES(1) + columnas sheet visibles + STATUS
+  // Necesitamos encontrar las td por data-colidx
+  document.querySelectorAll('#tableBody tr').forEach(tr=>{
+    const tds = tr.querySelectorAll('td');
+    // buscar td con data-bultos
+    tds.forEach(td=>{
+      if(td.dataset.bultos==='1'){
+        if(active){
+          td.classList.add('bultos-edit-mode');
+          td.style.cursor='text';
+          td.onclick = ()=>editBultosCell(td);
+        } else {
+          td.classList.remove('bultos-edit-mode');
+          td.style.cursor='';
+          td.onclick = null;
+        }
+      }
+    });
+  });
+}
+
+function editBultosCell(td){
+  if(!editBultosMode) return;
+  if(td.querySelector('input')) return; // ya en edición
+  const orig = td.textContent==='—'?'':td.textContent;
+  const rowIdx = parseInt(td.dataset.rowidx);
+  td.innerHTML='';
+  const inp = document.createElement('input');
+  inp.value = orig;
+  inp.type = 'number';
+  inp.min = '0';
+  inp.style.cssText='width:100%;background:transparent;border:none;outline:none;font-family:JetBrains Mono,monospace;font-size:13px;font-weight:600;color:#1a3a5c;text-align:center';
+  td.appendChild(inp);
+  inp.focus(); inp.select();
+
+  const save=()=>{
+    const v = inp.value.trim();
+    bultosEdits[rowIdx] = v;
+    td.textContent = v||'—';
+    td.classList.add('bultos-edit-mode');
+    td.onclick = ()=>editBultosCell(td);
+  };
+  inp.addEventListener('blur', save);
+  inp.addEventListener('keydown', e=>{
+    if(e.key==='Enter') inp.blur();
+    if(e.key==='Escape'){ td.textContent=orig||'—'; td.classList.add('bultos-edit-mode'); td.onclick=()=>editBultosCell(td); }
+  });
+}
+
+async function saveBultosEdits(){
+  if(Object.keys(bultosEdits).length===0){
+    showToast('No hay cambios para guardar','info');
+    return;
+  }
+  const iB = columnHeaders.findIndex(h=>/^bultos$/i.test(h));
+  let saved=0, failed=0;
+  for(const [ridx, val] of Object.entries(bultosEdits)){
+    const ri = parseInt(ridx);
+    const row = allData[ri];
+    if(!row) continue;
+    const old = row[iB];
+    row[iB] = val;
+    const ok = await safeUpsert(row,[iB]);
+    if(ok) saved++; else { row[iB]=old; failed++; }
+  }
+  updateKPIs();
+  cancelBultosEdit();
+  renderTable();
+  if(failed) showToast(`${saved} guardada(s), ${failed} NO se guardaron (revisa conexión)`, 'error');
+  else showToast(`${saved} fila(s) guardadas correctamente`, 'success');
+}
+
+// Parche: renderTable debe marcar las td de BULTOS con data-bultos y data-rowidx
+const _origRenderTable = typeof renderTable === 'function' ? renderTable : null;
+</script>
+<script>
+// ═══════════════════════════════════════════════════════
+// OTIF — CONFIG & ESTADO
+// ═══════════════════════════════════════════════════════
+// OTIF desactivado en este Sheet (pendiente). Para reactivar: pegar aquí el CSV del OTIF y quitar style="display:none" de #navOtif.
+const OTIF_CSV_URL = '';
+
+// Columnas que NO se muestran en la tabla
+const OTIF_HIDDEN_COLS = ['ID_PED'];
+
+// Índices de columnas del sheet (0-based, según orden real del CSV)
+// A=ID_PED, B=Mes-Año, C=Fecha Solicitud, D=Fecha Despacho, E=Cliente,
+// F=Nro Pedido, G=Nro Guia, H=Destinatario, I=Tipo Pedido, J=Cant Pedidos,
+// K=Cant Solicitada, L=Cant Entregada, M=Cant Bultos, N=Cumpl Cantidad,
+// O=Indicador Acido, P=Estatus Cumplimiento, Q=Resp Servicio,
+// R=MOTIVO, S=PROCESO, T=SUSTENTO, U=ANALISIS CAUSA, V=ACCIONES,
+// W=FECHA EJECUCION, X=RESPONSABLE, Y=EO
+
+let otifAllData      = [];  // todas las filas
+let otifHeaders      = [];  // cabeceras del CSV
+let otifFiltered     = [];  // filas tras aplicar filtros
+
+// Columnas que actúan como filtro
+const OTIF_FILTER_COLS = {
+  mesAnio : 'Mes - Año',
+  pedido  : 'Nro de Pedido',
+  guia    : 'Nro de la guia',
+  dest    : 'Destinatario',
+};
+
+// ═══════════════════════════════════════════════════════
+// NAVEGACIÓN ENTRE SECCIONES
+// ═══════════════════════════════════════════════════════
+function switchSection(section){
+  const bultos  = document.getElementById('sectionBultos');
+  const otif    = document.getElementById('sectionOtif');
+  const estatus = document.getElementById('sectionEstatus');
+  const navB    = document.getElementById('navBultos');
+  const navO    = document.getElementById('navOtif');
+  const navE    = document.getElementById('navEstatus');
+
+  // Ocultar todo — quitar sec-visible de las tres
+  bultos.classList.remove('sec-visible');
+  otif.classList.remove('sec-visible');
+  estatus.classList.remove('sec-visible');
+
+  // Reset visual de los 3 nav items
+  [navB, navO, navE].forEach(n=>{
+    n.classList.remove('bg-primary','text-on-primary','font-semibold');
+    n.classList.add('text-on-surface-variant');
+  });
+
+  if(section === 'otif'){
+    otif.classList.add('sec-visible');
+    navO.classList.remove('text-on-surface-variant');
+    navO.classList.add('bg-primary','text-on-primary','font-semibold');
+    if(otifAllData.length === 0) loadOtif();
+  } else if(section === 'estatus'){
+    estatus.classList.add('sec-visible');
+    navE.classList.remove('text-on-surface-variant');
+    navE.classList.add('bg-primary','text-on-primary','font-semibold');
+    renderEstatusTable();
+  } else {
+    bultos.classList.add('sec-visible');
+    navB.classList.remove('text-on-surface-variant');
+    navB.classList.add('bg-primary','text-on-primary','font-semibold');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// SECCIÓN ESTATUS — Pivot agrupado por FECHA CITA → CLIENTE
+// Fuente: allData de la sección Bultos (columnas FECHA CITA,
+// DESTINATARIO, CANTIDAD, ESTATUS DESPACHO)
+// ═══════════════════════════════════════════════════════
+let estatusCollapsed = new Set(); // fechas colapsadas (display dd/mm/yyyy)
+let estatusSelected  = new Set(); // keys "fechaKey||cliente" seleccionados para export
+let estatusLastGroups = [];       // referencia a los grupos del último render (para export)
+
+// Rellena el <select> de Cliente con los destinatarios únicos presentes en allData
+function populateEstatusClientes(){
+  const sel = document.getElementById('estatusFilterCliente');
+  if(!sel) return;
+  const iDest = columnHeaders.findIndex(h=>/destinatario/i.test(h));
+  const actual = sel.value;
+  const clientes = new Set();
+  if(iDest>=0){
+    allData.forEach(row=>{
+      const v = (row[iDest]||'').toString().trim();
+      if(v) clientes.add(v);
+    });
+  }
+  const ordenados = [...clientes].sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = '<option value="">Todos los clientes</option>' +
+    ordenados.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join('');
+  // Restaurar selección previa si sigue existiendo
+  if(actual && ordenados.includes(actual)) sel.value = actual;
+}
+
+function clearEstatusFilters(){
+  document.getElementById('estatusFilterDesde').value = '';
+  document.getElementById('estatusFilterHasta').value = '';
+  document.getElementById('estatusFilterCliente').value = '';
+  renderEstatusTable();
+}
+
+function buildEstatusPivot(){
+  const iFecha = columnHeaders.findIndex(h=>isFechaCitaCol(h));
+  const iDest  = columnHeaders.findIndex(h=>/destinatario/i.test(h));
+  const iCant  = columnHeaders.findIndex(h=>/^cantidad$/i.test(h));
+  const iEst   = columnHeaders.findIndex(h=>/^estatus\s*despacho$/i.test(h));
+
+  if(iFecha<0 || iDest<0 || iCant<0){
+    return { groups: [], missing: true };
+  }
+
+  // ── Filtros activos ──
+  const fDesdeEl = document.getElementById('estatusFilterDesde');
+  const fHastaEl = document.getElementById('estatusFilterHasta');
+  const fClienteEl = document.getElementById('estatusFilterCliente');
+  const fDesde   = fDesdeEl && fDesdeEl.value ? fDesdeEl.value.replace(/-/g,'') : '';
+  const fHasta   = fHastaEl && fHastaEl.value ? fHastaEl.value.replace(/-/g,'') : '';
+  const fCliente = fClienteEl ? fClienteEl.value.trim().toLowerCase() : '';
+
+  // Map: fechaKey(YYYYMMDD) -> { display, clientes: Map(cliente -> stats), sortKey }
+  const fechaMap = new Map();
+
+  allData.forEach(row=>{
+    const fechaRaw = row[iFecha];
+    if(!fechaRaw || String(fechaRaw).trim()==='') return;
+    const fechaKey = String(fechaRaw).replace(/\D/g,'');
+    if(fechaKey.length!==8) return;
+
+    // Filtro rango de fecha
+    if(fDesde && fechaKey < fDesde) return;
+    if(fHasta && fechaKey > fHasta) return;
+
+    const fechaDisplay = fmtDisplay(fechaRaw);
+    const cliente = (iDest>=0 ? row[iDest] : '') || '—';
+
+    // Filtro cliente
+    if(fCliente && cliente.toString().trim().toLowerCase() !== fCliente) return;
+
+    const cantidad = parseFloat(row[iCant]) || 0;
+    const estatusVal = iEst>=0 ? String(row[iEst]).trim() : '';
+    const revisado = estatusVal === 'Revisado';
+
+    if(!fechaMap.has(fechaKey)){
+      fechaMap.set(fechaKey, { display: fechaDisplay, sortKey: fechaKey, clientes: new Map() });
+    }
+    const fGroup = fechaMap.get(fechaKey);
+    if(!fGroup.clientes.has(cliente)){
+      fGroup.clientes.set(cliente, { pedidos:0, cantidad:0, pedRevisados:0, undRevisadas:0, pedPend:0, cantPend:0 });
+    }
+    const c = fGroup.clientes.get(cliente);
+    c.pedidos++;
+    c.cantidad += cantidad;
+    if(revisado){
+      c.pedRevisados++;
+      c.undRevisadas += cantidad;
+    } else {
+      c.pedPend++;
+      c.cantPend += cantidad;
+    }
+  });
+
+  // Ordenar fechas ascendente
+  const groups = [...fechaMap.values()].sort((a,b)=> a.sortKey.localeCompare(b.sortKey));
+  groups.forEach(g=>{
+    // Ordenar clientes alfabéticamente
+    g.clientesArr = [...g.clientes.entries()]
+      .map(([nombre, s])=>({ nombre, ...s }))
+      .sort((a,b)=> a.nombre.localeCompare(b.nombre));
+    // Totales de la fecha
+    g.total = g.clientesArr.reduce((acc, c)=>{
+      acc.pedidos += c.pedidos;
+      acc.cantidad += c.cantidad;
+      acc.pedRevisados += c.pedRevisados;
+      acc.undRevisadas += c.undRevisadas;
+      acc.pedPend += c.pedPend;
+      acc.cantPend += c.cantPend;
+      return acc;
+    }, { pedidos:0, cantidad:0, pedRevisados:0, undRevisadas:0, pedPend:0, cantPend:0 });
+  });
+
+  return { groups, missing: false };
+}
+
+function pctRevisionClass(pct){
+  if(pct >= 99.995) return 'pct-100';
+  if(pct <= 0.005)  return 'pct-zero';
+  return 'pct-partial';
+}
+function fmtPct(revisados, total){
+  const pct = total>0 ? (revisados/total*100) : 0;
+  return { pct, label: pct.toFixed(2)+'%', cls: pctRevisionClass(pct) };
+}
+function nf(n){ return Math.round(n).toLocaleString('es-PE'); }
+
+function toggleEstatusFecha(fechaKey){
+  if(estatusCollapsed.has(fechaKey)) estatusCollapsed.delete(fechaKey);
+  else estatusCollapsed.add(fechaKey);
+  renderEstatusTable();
+}
+
+function estatusRowKey(g, c){ return g.sortKey + '||' + c.nombre; }
+
+function renderEstatusTable(){
+  const tbody = document.getElementById('estatusTableBody');
+
+  // Población de filtro Cliente (refresca por si hay datos nuevos, preservando la selección)
+  populateEstatusClientes();
+
+  const { groups, missing } = buildEstatusPivot();
+  estatusLastGroups = groups;
+
+  if(missing){
+    tbody.innerHTML = `<tr><td colspan="10" class="text-center py-12 text-on-surface-variant">
+      <span class="material-symbols-outlined text-[48px] block mb-2 opacity-30">error_outline</span>
+      No se encontraron las columnas necesarias (FECHA CITA, DESTINATARIO, CANTIDAD).</td></tr>`;
+    updateEstatusSelUI();
+    return;
+  }
+  if(!groups.length){
+    tbody.innerHTML = `<tr><td colspan="10" class="text-center py-12 text-on-surface-variant">
+      <span class="material-symbols-outlined text-[48px] block mb-2 opacity-30">search_off</span>
+      Sin datos para mostrar con los filtros actuales.</td></tr>`;
+    updateEstatusSelUI();
+    return;
+  }
+
+  // Limpiar de la selección las claves que ya no están visibles con los filtros actuales
+  const visibleKeys = new Set();
+  groups.forEach(g=> g.clientesArr.forEach(c=> visibleKeys.add(estatusRowKey(g,c))));
+  [...estatusSelected].forEach(k=>{ if(!visibleKeys.has(k)) estatusSelected.delete(k); });
+
+  let html = '';
+  groups.forEach(g=>{
+    const collapsed = estatusCollapsed.has(g.sortKey);
+    const arrowCls = collapsed ? 'estatus-group-collapsed' : '';
+
+    // Filas de detalle por cliente (ocultas si colapsado)
+    if(!collapsed){
+      g.clientesArr.forEach(c=>{
+        const { label, cls } = fmtPct(c.undRevisadas, c.cantidad);
+        const key = estatusRowKey(g,c);
+        const checked = estatusSelected.has(key);
+        html += `<tr class="estatus-row hover:bg-secondary-fixed-dim/20${checked?' row-selected':''}">
+          <td><input type="checkbox" class="cb-row" ${checked?'checked':''} onchange="toggleEstatusRow('${key.replace(/'/g,"\\'")}', this.checked)"></td>
+          <td class="font-mono text-on-surface-variant">${g.display}</td>
+          <td>${c.nombre}</td>
+          <td class="text-right font-mono">${nf(c.pedidos)}</td>
+          <td class="text-right font-mono">${nf(c.cantidad)}</td>
+          <td class="text-right font-mono text-green-700 font-semibold">${nf(c.pedRevisados)}</td>
+          <td class="text-right font-mono text-green-700 font-semibold">${nf(c.undRevisadas)}</td>
+          <td class="text-right font-mono ${c.pedPend>0?'text-amber-700 font-semibold':''}">${nf(c.pedPend)}</td>
+          <td class="text-right font-mono ${c.cantPend>0?'text-amber-700 font-semibold':''}">${nf(c.cantPend)}</td>
+          <td><span class="pct-cell ${cls}">${label}</span></td>
+        </tr>`;
+      });
+    }
+
+    // Fila total de la fecha (clickeable para colapsar/expandir)
+    const t = g.total;
+    const totalPct = fmtPct(t.undRevisadas, t.cantidad);
+    html += `<tr class="estatus-total-row cursor-pointer" onclick="toggleEstatusFecha('${g.sortKey}')">
+      <td onclick="event.stopPropagation()"></td>
+      <td colspan="2">
+        <span class="estatus-fecha-toggle ${arrowCls}">
+          <span class="material-symbols-outlined">expand_more</span>
+          Total ${g.display}
+        </span>
+      </td>
+      <td class="text-right font-mono">${nf(t.pedidos)}</td>
+      <td class="text-right font-mono">${nf(t.cantidad)}</td>
+      <td class="text-right font-mono text-green-700">${nf(t.pedRevisados)}</td>
+      <td class="text-right font-mono text-green-700">${nf(t.undRevisadas)}</td>
+      <td class="text-right font-mono ${t.pedPend>0?'text-amber-700':''}">${nf(t.pedPend)}</td>
+      <td class="text-right font-mono ${t.cantPend>0?'text-amber-700':''}">${nf(t.cantPend)}</td>
+      <td><span class="pct-cell ${totalPct.cls}">${totalPct.label}</span></td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  updateEstatusSelUI();
+}
+
+// ─────────────────────────────────────────
+// SELECCIÓN DE CUADRÍCULAS (filas de detalle) — Estatus
+// ─────────────────────────────────────────
+function toggleEstatusRow(key, checked){
+  if(checked) estatusSelected.add(key);
+  else estatusSelected.delete(key);
+  renderEstatusTable();
+}
+
+function toggleEstatusAll(checked){
+  estatusLastGroups.forEach(g=>{
+    if(estatusCollapsed.has(g.sortKey)) return; // solo filas visibles (no colapsadas)
+    g.clientesArr.forEach(c=>{
+      const key = estatusRowKey(g,c);
+      if(checked) estatusSelected.add(key);
+      else estatusSelected.delete(key);
+    });
+  });
+  renderEstatusTable();
+}
+
+function updateEstatusSelUI(){
+  const n = estatusSelected.size;
+  const btn = document.getElementById('estatusExportSelBtn');
+  const countEl = document.getElementById('estatusSelCount');
+  const summaryEl = document.getElementById('estatusSelSummary');
+  if(countEl) countEl.textContent = n;
+  if(btn) btn.style.display = n>0 ? 'flex' : 'none';
+  if(summaryEl) summaryEl.textContent = n ? `${n} fila${n>1?'s':''} seleccionada${n>1?'s':''}` : '';
+  const cbAll = document.getElementById('estatusCbAll');
+  if(cbAll){
+    const visibleKeys = [];
+    estatusLastGroups.forEach(g=>{
+      if(estatusCollapsed.has(g.sortKey)) return;
+      g.clientesArr.forEach(c=> visibleKeys.push(estatusRowKey(g,c)));
+    });
+    cbAll.checked = visibleKeys.length>0 && visibleKeys.every(k=>estatusSelected.has(k));
+    cbAll.indeterminate = !cbAll.checked && visibleKeys.some(k=>estatusSelected.has(k));
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORTAR ESTATUS A XLSX (ExcelJS) — respeta colores y agrega subtotales
+// onlySelected: si es true, exporta únicamente las filas de detalle marcadas
+// con el checkbox (respetando igualmente los filtros de Cliente/Fecha activos)
+// ═══════════════════════════════════════════════════════
+async function exportEstatus(onlySelected){
+  const { groups, missing } = buildEstatusPivot();
+  if(missing || !groups.length){ showToast('Sin datos para exportar','error'); return; }
+
+  // Si es exportación de selección, filtrar clientesArr y recalcular totales por fecha
+  let exportGroups = groups;
+  if(onlySelected){
+    exportGroups = groups
+      .map(g=>{
+        const clientesArr = g.clientesArr.filter(c=> estatusSelected.has(estatusRowKey(g,c)));
+        if(!clientesArr.length) return null;
+        const total = clientesArr.reduce((acc,c)=>{
+          acc.pedidos += c.pedidos; acc.cantidad += c.cantidad;
+          acc.pedRevisados += c.pedRevisados; acc.undRevisadas += c.undRevisadas;
+          acc.pedPend += c.pedPend; acc.cantPend += c.cantPend;
+          return acc;
+        }, { pedidos:0, cantidad:0, pedRevisados:0, undRevisadas:0, pedPend:0, cantPend:0 });
+        return { ...g, clientesArr, total };
+      })
+      .filter(Boolean);
+    if(!exportGroups.length){ showToast('No hay filas seleccionadas para exportar','error'); return; }
+  }
+
+  try{
+    if(typeof ExcelJS === 'undefined'){ showToast('No se pudo cargar el motor de Excel (ExcelJS)','error'); return; }
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Control de Pedidos';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Estatus', { views:[{ state:'frozen', ySplit:1 }] });
+
+    const heads = ['FECHA DESPACHO','CLIENTE','N° PEDIDOS','CANTIDAD','PED. REVISADOS','UND. REVISADAS','PED. PENDIENTES','CANT. PENDIENTE','%REVISIÓN'];
+    ws.columns = [
+      { width: 16 }, { width: 34 }, { width: 13 }, { width: 13 },
+      { width: 14 }, { width: 14 }, { width: 15 }, { width: 15 }, { width: 13 }
+    ];
+
+    // ── Colores (mismos que la UI) ──
+    const NAVY  = 'FF1A3A5C';
+    const BLACK = 'FF0D1520';
+    const GREEN = 'FF166534';
+    const AMBER = 'FF92400E';
+    const WHITE = 'FFFFFFFF';
+    const PCT_GREEN_BG = 'FFDCFCE7', PCT_GREEN_FG = 'FF15803D';
+    const PCT_AMBER_BG = 'FFFEF3C7', PCT_AMBER_FG = 'FF92400E';
+    const PCT_RED_BG   = 'FFFEE2E2', PCT_RED_FG   = 'FFB91C1C';
+    const TOTAL_BG = 'FFDBEAFE', TOTAL_BORDER = 'FF93C5FD';
+    const GRAND_BG = 'FF0F2540';
+
+    const headerFillColors = [NAVY, NAVY, BLACK, BLACK, GREEN, GREEN, AMBER, AMBER, BLACK];
+
+    // Fila de cabecera
+    const headerRow = ws.addRow(heads);
+    headerRow.eachCell((cell, colNumber)=>{
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: headerFillColors[colNumber-1] } };
+      cell.font = { color:{ argb: WHITE }, bold:true, size:10 };
+      cell.alignment = { vertical:'middle', horizontal: colNumber<=2 ? 'left' : 'center' };
+    });
+    headerRow.height = 20;
+
+    const thinBorder = { style:'thin', color:{ argb:'FFC4CDD9' } };
+
+    function addPctCell(row, colIndex, pct, label){
+      const cell = row.getCell(colIndex);
+      cell.value = label;
+      let bg = PCT_AMBER_BG, fg = PCT_AMBER_FG;
+      if(pct >= 99.995){ bg = PCT_GREEN_BG; fg = PCT_GREEN_FG; }
+      else if(pct <= 0.005){ bg = PCT_RED_BG; fg = PCT_RED_FG; }
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: bg } };
+      cell.font = { color:{ argb: fg }, bold:true, size:10 };
+      cell.alignment = { horizontal:'center', vertical:'middle' };
+    }
+
+    // Total general acumulado
+    const grand = { pedidos:0, cantidad:0, pedRevisados:0, undRevisadas:0, pedPend:0, cantPend:0 };
+
+    exportGroups.forEach(g=>{
+      g.clientesArr.forEach(c=>{
+        const { pct, label } = fmtPct(c.undRevisadas, c.cantidad);
+        const row = ws.addRow([g.display, c.nombre, c.pedidos, c.cantidad, c.pedRevisados, c.undRevisadas, c.pedPend, c.cantPend, '']);
+        row.eachCell((cell, colNumber)=>{
+          cell.font = { size:10, color:{ argb:'FF0F1923' } };
+          cell.alignment = { horizontal: colNumber<=2 ? 'left' : 'right', vertical:'middle' };
+          cell.border = { bottom: thinBorder };
+        });
+        // Resaltar columnas revisadas (verde) y pendientes (ámbar) como en la UI
+        row.getCell(5).font = { size:10, bold:true, color:{ argb:'FF15803D' } };
+        row.getCell(6).font = { size:10, bold:true, color:{ argb:'FF15803D' } };
+        if(c.pedPend>0) row.getCell(7).font = { size:10, bold:true, color:{ argb:'FFB45309' } };
+        if(c.cantPend>0) row.getCell(8).font = { size:10, bold:true, color:{ argb:'FFB45309' } };
+        addPctCell(row, 9, pct, label);
+      });
+
+      const t = g.total;
+      const tp = fmtPct(t.undRevisadas, t.cantidad);
+      const totalRow = ws.addRow(['Total '+g.display, '', t.pedidos, t.cantidad, t.pedRevisados, t.undRevisadas, t.pedPend, t.cantPend, '']);
+      totalRow.eachCell((cell, colNumber)=>{
+        cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: TOTAL_BG } };
+        cell.font = { bold:true, size:10, color:{ argb:'FF0F1923' } };
+        cell.alignment = { horizontal: colNumber<=2 ? 'left' : 'right', vertical:'middle' };
+        cell.border = { top:{style:'thin',color:{argb:TOTAL_BORDER}}, bottom:{style:'thin',color:{argb:TOTAL_BORDER}} };
+      });
+      addPctCell(totalRow, 9, tp.pct, tp.label);
+      totalRow.getCell(9).fill = { type:'pattern', pattern:'solid', fgColor:{ argb: tp.pct>=99.995?PCT_GREEN_BG:(tp.pct<=0.005?PCT_RED_BG:PCT_AMBER_BG) } };
+
+      grand.pedidos += t.pedidos; grand.cantidad += t.cantidad;
+      grand.pedRevisados += t.pedRevisados; grand.undRevisadas += t.undRevisadas;
+      grand.pedPend += t.pedPend; grand.cantPend += t.cantPend;
+    });
+
+    // Fila de Total General
+    const gp = fmtPct(grand.undRevisadas, grand.cantidad);
+    const grandRow = ws.addRow(['TOTAL GENERAL', '', grand.pedidos, grand.cantidad, grand.pedRevisados, grand.undRevisadas, grand.pedPend, grand.cantPend, gp.label]);
+    grandRow.eachCell((cell, colNumber)=>{
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: GRAND_BG } };
+      cell.font = { bold:true, size:11, color:{ argb: WHITE } };
+      cell.alignment = { horizontal: colNumber<=2 ? 'left' : 'right', vertical:'middle' };
+    });
+    grandRow.getCell(9).alignment = { horizontal:'center', vertical:'middle' };
+    grandRow.height = 22;
+
+    ws.autoFilter = { from:{ row:1, column:1 }, to:{ row:1, column: heads.length } };
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const d = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const suffix = onlySelected ? '_seleccion' : '';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `estatus_despacho${suffix}_${d}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+
+    showToast('✓ Estatus exportado correctamente','success');
+  } catch(err){
+    showToast('Error al exportar: ' + err.message,'error');
+    console.error(err);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CARGA DE DATOS OTIF
+// ═══════════════════════════════════════════════════════
+async function loadOtif(){
+  document.getElementById('otifTableBody').innerHTML =
+    `<tr><td colspan="20" class="text-center py-12 text-on-surface-variant">
+      <span class="material-symbols-outlined text-[40px] block mb-2 opacity-20">cloud_download</span>
+      Cargando datos OTIF...
+    </td></tr>`;
+
+  const urls = [
+    OTIF_CSV_URL,
+    `https://corsproxy.io/?${encodeURIComponent(OTIF_CSV_URL)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(OTIF_CSV_URL)}`,
+    `https://corsproxy.org/?${encodeURIComponent(OTIF_CSV_URL)}`,
+  ];
+
+  let csv = null;
+  for(const url of urls){
+    try{
+      const r = await fetch(url, { cache:'no-store', mode:'cors' });
+      if(r.ok){
+        const text = await r.text();
+        if(text && text.trim().length > 10){ csv = text; break; }
+      }
+    } catch(e){ console.warn('[OTIF] falló:', url, e.message); }
+  }
+
+  if(!csv){
+    document.getElementById('otifTableBody').innerHTML =
+      `<tr><td colspan="20" class="text-center py-10 text-error font-semibold">
+        No se pudo cargar el Sheet OTIF. Verifique la URL o su conexión.
+      </td></tr>`;
+    showToast('Error al cargar datos OTIF','error');
+    return;
+  }
+
+  parseOtifCSV(csv);
+  const now = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('otifSyncTime').innerHTML =
+    `<span class="material-symbols-outlined text-[13px]">schedule</span>Actualizado ${now}`;
+  showToast(`OTIF: ${otifAllData.length} registros cargados`,'success');
+}
+
+function reloadOtif(){
+  otifAllData = []; otifHeaders = []; otifFiltered = [];
+  showToast('Actualizando datos OTIF...','info');
+  loadOtif();
+}
+
+// ═══════════════════════════════════════════════════════
+// PARSEO CSV OTIF
+// ═══════════════════════════════════════════════════════
+function parseOtifCSV(csv){
+  const lines = csv.split('\n').filter(l => l.trim());
+  if(lines.length < 2){ showToast('CSV OTIF vacío','error'); return; }
+
+  const sep = lines[0].includes('\t') ? '\t' : ',';
+  otifHeaders = splitOtifLine(lines[0], sep).map(h => h.replace(/"/g,'').trim());
+
+  otifAllData = [];
+  for(let i = 1; i < lines.length; i++){
+    const cells = splitOtifLine(lines[i], sep).map(c => c.replace(/"/g,'').trim());
+    if(cells.every(c => !c)) continue;
+    // Rellenar si faltan celdas
+    while(cells.length < otifHeaders.length) cells.push('');
+    otifAllData.push(cells);
+  }
+
+  populateOtifFilterOptions();
+  applyOtifFilters();
+}
+
+function splitOtifLine(line, sep){
+  const r = []; let q = false, c = '';
+  for(let i = 0; i < line.length; i++){
+    const ch = line[i];
+    if(ch === '"'){ q = !q; }
+    else if(ch === sep && !q){ r.push(c); c = ''; }
+    else c += ch;
+  }
+  r.push(c);
+  return r;
+}
+
+// ═══════════════════════════════════════════════════════
+// POBLAR OPCIONES DE FILTROS DINÁMICOS
+// ═══════════════════════════════════════════════════════
+function populateOtifFilterOptions(){
+  const iMes = otifHeaders.findIndex(h => /mes.*año/i.test(h) || /mes\s*-\s*año/i.test(h));
+  const sel  = document.getElementById('otifFilterMesAnio');
+  // Limpiar excepto "Todos"
+  sel.innerHTML = '<option value="">Todos</option>';
+
+  if(iMes >= 0){
+    const vals = [...new Set(otifAllData.map(r => r[iMes]).filter(v => v))].sort();
+    vals.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = v;
+      sel.appendChild(opt);
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// FILTRADO OTIF
+// ═══════════════════════════════════════════════════════
+function applyOtifFilters(){
+  const fMes    = document.getElementById('otifFilterMesAnio').value.toLowerCase();
+  const fPed    = document.getElementById('otifFilterPedido').value.toLowerCase().trim();
+  const fGuia   = document.getElementById('otifFilterGuia').value.toLowerCase().trim();
+  const fDest   = document.getElementById('otifFilterDest').value.toLowerCase().trim();
+
+  const iMes  = otifHeaders.findIndex(h => /mes.*año/i.test(h) || /mes\s*-\s*año/i.test(h));
+  const iPed  = otifHeaders.findIndex(h => /nro.*pedido/i.test(h));
+  const iGuia = otifHeaders.findIndex(h => /nro.*guia/i.test(h) || /nro.*guía/i.test(h));
+  const iDest = otifHeaders.findIndex(h => /destinatario/i.test(h));
+
+  otifFiltered = otifAllData.filter(row => {
+    if(fMes  && iMes  >= 0 && !row[iMes].toLowerCase().includes(fMes))    return false;
+    if(fPed  && iPed  >= 0 && !row[iPed].toLowerCase().includes(fPed))    return false;
+    if(fGuia && iGuia >= 0 && !row[iGuia].toLowerCase().includes(fGuia))  return false;
+    if(fDest && iDest >= 0 && !row[iDest].toLowerCase().includes(fDest))  return false;
+    return true;
+  });
+
+  updateOtifKPIs();
+  renderOtifTable();
+}
+
+function clearOtifFilters(){
+  document.getElementById('otifFilterMesAnio').value = '';
+  ['otifFilterPedido','otifFilterGuia','otifFilterDest'].forEach(id =>
+    document.getElementById(id).value = '');
+  applyOtifFilters();
+}
+
+// ═══════════════════════════════════════════════════════
+// KPIs OTIF
+// ═══════════════════════════════════════════════════════
+function updateOtifKPIs(){
+  const iEstatus = otifHeaders.findIndex(h => /estatus.*cumplimiento/i.test(h));
+
+  const total       = otifFiltered.length;
+  const cumplidos   = iEstatus >= 0
+    ? otifFiltered.filter(r => /cumplido/i.test(r[iEstatus])).length
+    : 0;
+  const incumplidos = total - cumplidos;
+  const pct         = total > 0 ? Math.round((cumplidos / total) * 100) : 0;
+
+  document.getElementById('otif-kpi-total').textContent        = total.toLocaleString('es-PE');
+  document.getElementById('otif-kpi-cumplidos').textContent    = cumplidos.toLocaleString('es-PE');
+  document.getElementById('otif-kpi-incumplidos').textContent  = incumplidos.toLocaleString('es-PE');
+  document.getElementById('otif-kpi-otif-pct').textContent     = pct + '%';
+  document.getElementById('otif-kpi-pct-cumplidos').textContent   = pct + '%';
+  document.getElementById('otif-kpi-pct-incumplidos').textContent = (100 - pct) + '%';
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER TABLA OTIF
+// ═══════════════════════════════════════════════════════
+function renderOtifTable(){
+  // ── Cabeceras ──
+  const thead = document.getElementById('otifTableHeader');
+  thead.innerHTML = '';
+  const visibleCols = otifHeaders
+    .map((h, i) => ({ h, i }))
+    .filter(({ h }) => !OTIF_HIDDEN_COLS.some(hid => h.trim().toUpperCase() === hid.toUpperCase()));
+
+  visibleCols.forEach(({ h }) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    th.className = 'px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap text-white';
+    thead.appendChild(th);
+  });
+
+  // ── Cuerpo ──
+  const tbody = document.getElementById('otifTableBody');
+  tbody.innerHTML = '';
+
+  if(!otifFiltered.length){
+    tbody.innerHTML = `<tr><td colspan="${visibleCols.length}" class="text-center py-12 text-on-surface-variant">
+      <span class="material-symbols-outlined text-[48px] block mb-2 opacity-30">search_off</span>
+      Sin resultados</td></tr>`;
+    document.getElementById('otifTotalEntries').textContent = '0';
+    return;
+  }
+
+  const iEstatus = otifHeaders.findIndex(h => /estatus.*cumplimiento/i.test(h));
+
+  otifFiltered.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-secondary-fixed-dim/20 transition-colors';
+
+    visibleCols.forEach(({ h, i }) => {
+      const td = document.createElement('td');
+      td.className = 'px-3 py-2.5 text-[12px] text-on-surface whitespace-nowrap';
+      const val = row[i] || '—';
+
+      // Badge para Estatus de Cumplimiento
+      if(i === iEstatus){
+        const cls = /cumplido/i.test(val) ? 'badge-cumplido' :
+                    /incumplido/i.test(val) ? 'badge-incumplido' : 'badge-parcial';
+        td.innerHTML = `<span class="${cls}">${val}</span>`;
+      } else {
+        td.textContent = val;
+      }
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('otifTotalEntries').textContent =
+    otifFiltered.length.toLocaleString('es-PE');
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORTAR OTIF A XLS (según filtros actuales)
+// ═══════════════════════════════════════════════════════
+function exportOtifFiltered(){
+  if(!otifFiltered.length){ showToast('Sin datos para exportar','error'); return; }
+
+  try{
+    const visibleCols = otifHeaders
+      .map((h, i) => ({ h, i }))
+      .filter(({ h }) => !OTIF_HIDDEN_COLS.some(hid => h.trim().toUpperCase() === hid.toUpperCase()));
+
+    const heads = visibleCols.map(({ h }) => h);
+    const rows  = otifFiltered.map(row => visibleCols.map(({ i }) => row[i] || ''));
+
+    const ws = XLSX.utils.aoa_to_sheet([heads, ...rows]);
+    ws['!cols'] = heads.map(h => {
+      if(/destinatario/i.test(h))           return { wch: 38 };
+      if(/causa|acciones|sustento/i.test(h)) return { wch: 30 };
+      if(/fecha/i.test(h))                  return { wch: 18 };
+      return { wch: 16 };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'OTIF');
+
+    const d = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    XLSX.writeFile(wb, `otif_cumplimiento_${d}.xlsx`, { compression: true });
+    showToast('✓ OTIF exportado correctamente','success');
+  } catch(err){
+    showToast('Error al exportar: ' + err.message,'error');
+    console.error(err);
+  }
+}
+</script>
+<!-- ── Modal VALIDADO POR / REGISTRADO POR ── -->
+<div id="despOverlay" class="pin-overlay" style="display:none" onclick="if(event.target===this)cancelDespModal()">
+  <div class="pin-box">
+    <div style="font-size:36px;margin-bottom:8px">📝</div>
+    <h2>Confirmar bultos despachados</h2>
+    <p id="despInfo" style="margin-bottom:12px"></p>
+    <input id="despValidado" class="pin-input" type="text" maxlength="40" placeholder="VALIDADO POR" autocomplete="off" style="margin-bottom:8px"
+      onkeydown="if(event.key==='Enter')document.getElementById('despRegistrado').focus()">
+    <input id="despRegistrado" class="pin-input" type="text" maxlength="40" placeholder="REGISTRADO POR" autocomplete="off"
+      onkeydown="if(event.key==='Enter')confirmDespModal()">
+    <div id="despError" class="pin-error"></div>
+    <div class="pin-btns">
+      <button class="pin-cancel" onclick="cancelDespModal()">Cancelar</button>
+      <button class="pin-confirm" onclick="confirmDespModal()">Guardar</button>
+    </div>
+  </div>
+</div>
+<script>
+// ─────────────────────────────────────────
+// MODAL: VALIDADO POR + REGISTRADO POR (obligatorios para guardar BULTOS DESP)
+// ─────────────────────────────────────────
+let despModalOpen=false, _despCb=null;
+function openDespModal(cfg){
+  _despCb=cfg; despModalOpen=true;
+  document.getElementById('despInfo').textContent=cfg.info||'';
+  document.getElementById('despValidado').value='';
+  document.getElementById('despRegistrado').value='';
+  document.getElementById('despError').textContent='';
+  document.getElementById('despOverlay').style.display='flex';
+  setTimeout(()=>document.getElementById('despValidado').focus(),60);
+}
+function closeDespModal(){
+  document.getElementById('despOverlay').style.display='none';
+  despModalOpen=false;
+}
+function cancelDespModal(){
+  const cb=_despCb; _despCb=null; closeDespModal();
+  if(cb && cb.onCancel) cb.onCancel();
+}
+function confirmDespModal(){
+  const v=document.getElementById('despValidado').value.trim().toUpperCase();
+  const r=document.getElementById('despRegistrado').value.trim().toUpperCase();
+  if(!v || !r){
+    document.getElementById('despError').textContent='Debes completar VALIDADO POR y REGISTRADO POR.';
+    (!v?document.getElementById('despValidado'):document.getElementById('despRegistrado')).focus();
+    return;
+  }
+  const cb=_despCb; _despCb=null; closeDespModal();
+  if(cb && cb.onConfirm) cb.onConfirm(v,r);
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && despModalOpen) cancelDespModal(); });
+
+// ─────────────────────────────────────────
+// GUARDADO SEGURO
+// Antes de escribir, trae la fila ACTUAL del Sheet y conserva sus valores en todas
+// las columnas que NO se están modificando (BULTOS, USUARIO, REGISTRO, ESTATUS, etc.).
+// Así, aunque la ventana esté desactualizada, no se pisan los datos de otros usuarios.
+// Si no se puede leer el Sheet, NO guarda (para no sobrescribir con datos viejos).
+// ─────────────────────────────────────────
+async function safeUpsert(row, changedCols, keyRow){
+  if(!requireWebApp()) return false;
+  keyRow = keyRow || row;
+  const iId  = columnHeaders.findIndex(h=>/id bultos/i.test(h));
+  const iBp  = columnHeaders.findIndex(h=>/^bpcs$/i.test(h));
+  const iDoc = columnHeaders.findIndex(h=>/^documento$/i.test(h));
+  try{
+    const controller=new AbortController();
+    const to=setTimeout(()=>controller.abort(),15000);
+    let resp;
+    try{ resp=await fetch(WEBAPP_URL+'?action=json&t='+Date.now(),{cache:'no-store',signal:controller.signal}); }
+    finally{ clearTimeout(to); }
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const json=await resp.json();
+    if(!json.ok) throw new Error(json.error||'WebApp error');
+    const fresh=(json.data||[]).map(o=>columnHeaders.map(h=>String(o[h]??'').trim()));
+
+    let f=-1;
+    const kId=iId>=0?String(keyRow[iId]??'').trim():'';
+    if(iId>=0 && kId!=='' && iBp>=0)
+      f=fresh.findIndex(r=>r[iId]===kId && r[iBp]===String(keyRow[iBp]).trim());
+    if(f<0 && iBp>=0 && iDoc>=0)
+      f=fresh.findIndex(r=>r[iBp]===String(keyRow[iBp]).trim() && r[iDoc]===String(keyRow[iDoc]).trim());
+    if(f<0){
+      showToast('No se encontró la fila en el Sheet. Presiona Actualizar e inténtalo de nuevo.','error');
+      return false;
+    }
+    // Conservar lo más reciente del Sheet en las columnas no modificadas
+    let refreshed=0;
+    columnHeaders.forEach((h,i)=>{
+      if(changedCols.includes(i)) return;
+      const fv=fresh[f][i];
+      if(i===iId && fv==='') return;          // no borrar el correlativo local
+      if(String(row[i]??'')!==fv){ row[i]=fv; refreshed++; }
+    });
+    await postToSheet('upsertRow',{ row:[...row], changed: changedCols.map(i=>columnHeaders[i]) });
+    if(refreshed) showToast('Guardado. Se detectaron datos más recientes en el Sheet y se conservaron.','info');
+    return true;
+  }catch(e){
+    const msg=(e&&e.name==='AbortError')?'Tiempo de espera agotado':e.message;
+    showToast('NO se guardó: '+msg+'. Intenta de nuevo.','error');
+    return false;
+  }
+}
+</script>
+</body>
+</html>
